@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 10B — GitHub Pages &rarr; localhost:8090 Live Validation</title>
+<style>
+  body { font-family: -apple-system, "Malgun Gothic", sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  h1 { font-size: 1.3rem; }
+  h2 { font-size: 1.05rem; margin-top: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; }
+  section { margin-bottom: 1.5rem; }
+  button { padding: 0.5rem 1rem; cursor: pointer; font-size: 0.95rem; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { text-align: left; padding: 0.25rem 0.5rem; border-bottom: 1px solid #eee; font-size: 0.92rem; }
+  th { width: 46%; color: #555; font-weight: normal; }
+  .badge { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 3px; font-size: 0.85rem; font-weight: bold; }
+  .badge-PASS { background: #dafbe1; color: #1a7f37; }
+  .badge-WARN { background: #fff5cc; color: #9a6700; }
+  .badge-FAIL { background: #ffebe9; color: #b42318; }
+  .badge-INFO { background: #eaf0fe; color: #2b4fb0; }
+  .env-box { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px; padding: 0.6rem 0.8rem; font-size: 0.88rem; white-space: pre-wrap; }
+  .diag-box { background: #ffebe9; border: 1px solid #ffc1bc; padding: 0.7rem 0.9rem; border-radius: 4px; margin-top: 0.6rem; font-size: 0.9rem; }
+  .diag-box h3 { margin: 0.9rem 0 0.3rem 0; font-size: 0.92rem; }
+  .diag-box h3:first-child { margin-top: 0; }
+  .diag-box ul { margin: 0.2rem 0 0.6rem 1.1rem; padding: 0; }
+  .hint { color: #777; font-size: 0.85rem; }
+  pre.raw { background: #f6f8fa; padding: 0.6rem; border-radius: 4px; font-size: 0.78rem; overflow-x: auto; max-height: 240px; }
+  details summary { cursor: pointer; color: #555; font-size: 0.85rem; }
+  .readonly-note { background: #eaf0fe; border: 1px solid #c6d6fb; border-radius: 4px; padding: 0.6rem 0.8rem; font-size: 0.88rem; }
+</style>
+</head>
+<body>
+
+<h1>Phase 10B — GitHub Pages &rarr; localhost:8090 Live Validation</h1>
+<p class="hint">
+  이 페이지는 <strong>실제 HTTPS로 호스팅된 정적 사이트</strong>에서 이 페이지를 보는 사용자
+  자신의 로컬 Stellarium 26.2 Remote Control API(<code>http://localhost:8090</code>)에 연결할 수
+  있는지를 실기기로 검증하기 위한 최소 배포 아티팩트입니다. Solarchem 프로덕션 UI, 과학 계산,
+  Electron 어느 것도 포함하지 않습니다.
+</p>
+<p class="readonly-note">
+  <strong>읽기 전용(read-only)</strong>: 이 페이지는 <code>checkConnection</code> /
+  <code>getCurrentLocation</code> / <code>getCurrentTime</code> / <code>getSunInfo</code>만
+  호출합니다 (전부 <code>js/stellarium-api.js</code>의 GET 기반 함수, Solarchem 프로덕션 코드가
+  실제로 쓰는 것과 동일한 API 경로 — 이 파일은 원본과 byte-for-byte 동일한 사본입니다).
+  <code>setLocation</code>/<code>setDateTime</code> 등 Stellarium의 위치·고도·시간대·날짜/시각을
+  바꾸는 함수는 이 페이지 어디에서도 호출하지 않습니다.
+</p>
+
+<section>
+  <h2>0. Page environment</h2>
+  <div class="env-box" id="env-box">확인 중...</div>
+</section>
+
+<section>
+  <h2>1. Local Network Access permission (best-effort, read-only query)</h2>
+  <p class="hint">
+    Chrome 142+는 공개 origin에서 loopback/사설망 주소로 나가는 요청에 대해 "Local Network Access"
+    권한 프롬프트를 요구합니다. 이 섹션은 <code>navigator.permissions.query</code>로 현재 권한
+    상태를 조회만 합니다 — 권한을 요청하거나 트리거하지 않습니다.
+  </p>
+  <div id="lna-permission-status">확인 중...</div>
+</section>
+
+<section>
+  <h2>2. Run checks</h2>
+  <button id="btn-run">Run checks (read-only)</button>
+  <p class="hint">
+    버튼을 누르면 아래 항목을 순서대로 확인합니다. 각 항목은 실패해도 다음 항목을 계속
+    시도합니다(첫 실패에서 멈추지 않음).
+  </p>
+</section>
+
+<section>
+  <h2>3. Results</h2>
+  <table>
+    <tr><th>reachability (raw fetch, <code>/api/main/status</code>)</th><td id="r-reachability">—</td></tr>
+    <tr><th><code>checkConnection()</code></th><td id="r-connection">—</td></tr>
+    <tr><th>observer latitude/longitude</th><td id="r-location">—</td></tr>
+    <tr><th>observer elevation</th><td id="r-elevation">—</td></tr>
+    <tr><th>date/time (UTC, local, Julian day)</th><td id="r-time">—</td></tr>
+    <tr><th>Sun altitude</th><td id="r-sun-altitude">—</td></tr>
+    <tr><th>Sun azimuth</th><td id="r-sun-azimuth">—</td></tr>
+    <tr><th>Earth&ndash;Sun distance</th><td id="r-sun-distance">—</td></tr>
+  </table>
+
+  <div id="diagnostics"></div>
+
+  <details>
+    <summary>raw responses (debug)</summary>
+    <pre class="raw" id="raw-output">(아직 없음)</pre>
+  </details>
+</section>
+
+<script src="js/stellarium-api.js"></script>
+<script>
+"use strict";
+
+const el = (id) => document.getElementById(id);
+const rawLog = {};
+
+function makeBadge(status, text) {
+  const span = document.createElement('span');
+  span.className = `badge badge-${status}`;
+  span.textContent = text || status;
+  return span;
+}
+
+function renderCell(container, status, detail) {
+  container.textContent = '';
+  container.appendChild(makeBadge(status));
+  if (detail) {
+    const hint = document.createElement('span');
+    hint.className = 'hint';
+    hint.textContent = ' ' + detail;
+    container.appendChild(hint);
+  }
+}
+
+function updateRaw() {
+  el('raw-output').textContent = JSON.stringify(rawLog, null, 2);
+}
+
+// ---------------------------------------------------------------------------
+// 0. 페이지 환경 표시 — HTTPS로 실제 로드되었는지, 어떤 origin인지 스스로 보여준다.
+// GitHub Pages project site는 도메인 루트가 아니라 /<repo>/ 하위 경로에서 서빙되므로
+// 이 페이지의 모든 asset 참조(js/stellarium-api.js)는 상대경로로만 작성했다 —
+// root-absolute 경로(/js/...)를 쓰면 project-path 배포에서 404가 난다.
+// ---------------------------------------------------------------------------
+(function renderEnv() {
+  const box = el('env-box');
+  const lines = [];
+  lines.push(`origin: ${location.origin}`);
+  lines.push(`pathname: ${location.pathname}`);
+  lines.push(`protocol: ${location.protocol}`);
+
+  if (location.protocol === 'https:') {
+    lines.push('[PASS] HTTPS로 로드됨 — 프로덕션 GitHub Pages와 동일한 mixed-content/Local Network Access 조건.');
+  } else if (location.protocol === 'file:') {
+    lines.push('[WARN] file:// 로 열려 있음 — Origin: null로 취급되어 Stellarium CORS(cors_origin)가 이를 명시적으로 허용하지 않는 한 항상 실패한다. 이 결과는 실제 GitHub Pages 배포 결과를 대표하지 않는다.');
+  } else {
+    lines.push('[WARN] HTTPS가 아님 — 실제 GitHub Pages 배포(HTTPS) 전 로컬 미리보기 단계로 판단됨. 이 결과만으로 프로덕션 동작을 단정할 수 없다.');
+  }
+
+  box.textContent = lines.join('\n');
+})();
+
+// ---------------------------------------------------------------------------
+// 1. Local Network Access 권한 상태 조회 (best-effort, read-only)
+// ---------------------------------------------------------------------------
+(async function checkLnaPermission() {
+  const container = el('lna-permission-status');
+  if (!navigator.permissions || !navigator.permissions.query) {
+    renderCell(container, 'INFO', 'navigator.permissions API를 지원하지 않는 브라우저입니다.');
+    return;
+  }
+  try {
+    const result = await navigator.permissions.query({ name: 'local-network-access' });
+    const statusMap = { granted: 'PASS', denied: 'FAIL', prompt: 'WARN' };
+    const badgeStatus = statusMap[result.state] || 'INFO';
+    const detailMap = {
+      granted: '이미 허용됨 — 이 origin은 loopback/사설망 요청이 이미 승인되어 있습니다.',
+      denied: '거부됨 — 브라우저 사이트 설정(로컬 네트워크)에서 수동으로 재허용해야 fetch가 성공합니다.',
+      prompt: '아직 결정되지 않음 — 아래 "Run checks"를 누르면 브라우저가 권한 프롬프트를 띄울 수 있습니다.',
+    };
+    renderCell(container, badgeStatus, `state: ${result.state}. ${detailMap[result.state] || ''}`);
+  } catch (err) {
+    renderCell(container, 'INFO', `이 브라우저는 "local-network-access" permission 이름을 인식하지 못합니다 (${err.message}).`);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// raw fetch reachability — stellarium-api.js를 거치지 않은 최소 fetch.
+// targetAddressSpace: 'local'은 loopback 호스트명이 아닌 주소에 대비한 선택적
+// 힌트이며, 이를 모르는 브라우저는 RequestInit의 알 수 없는 필드로 조용히
+// 무시한다(throw하지 않음).
+// ---------------------------------------------------------------------------
+async function checkReachability() {
+  const container = el('r-reachability');
+  const start = performance.now();
+  try {
+    const response = await fetch('http://localhost:8090/api/main/status', {
+      method: 'GET',
+      targetAddressSpace: 'local',
+    });
+    const elapsedMs = Math.round(performance.now() - start);
+    if (!response.ok) {
+      renderCell(container, 'FAIL', `HTTP ${response.status} (${elapsedMs}ms)`);
+      return false;
+    }
+    renderCell(container, 'PASS', `HTTP ${response.status}, ${elapsedMs}ms`);
+    rawLog.reachability = { status: response.status, elapsedMs };
+    return true;
+  } catch (err) {
+    const elapsedMs = Math.round(performance.now() - start);
+    renderCell(container, 'FAIL', `${err.name}: ${err.message} (${elapsedMs}ms)`);
+    rawLog.reachability = { error: String(err), elapsedMs };
+    return false;
+  }
+}
+
+async function checkConnectionStep() {
+  const container = el('r-connection');
+  const result = await checkConnection();
+  rawLog.checkConnection = result.connected ? result.raw : { error: result.error && result.error.message };
+  if (result.connected) {
+    renderCell(container, 'PASS', 'connected');
+  } else {
+    renderCell(container, 'FAIL', `${result.error.kind}: ${result.error.message}`);
+  }
+  return result.connected;
+}
+
+async function checkLocationStep() {
+  const latContainer = el('r-location');
+  const elevContainer = el('r-elevation');
+  try {
+    const loc = await getCurrentLocation();
+    renderCell(latContainer, 'PASS', `${loc.latitude}, ${loc.longitude} (${loc.name || '—'})`);
+    renderCell(elevContainer, 'PASS', `${loc.altitude} m`);
+    rawLog.location = loc.raw.location;
+  } catch (err) {
+    renderCell(latContainer, 'FAIL', `${err.kind || err.name}: ${err.message}`);
+    renderCell(elevContainer, 'FAIL', '(위와 동일한 오류)');
+    rawLog.location = { error: String(err) };
+  }
+}
+
+async function checkTimeStep() {
+  const container = el('r-time');
+  try {
+    const time = await getCurrentTime();
+    renderCell(container, 'PASS', `${time.utcIso} / local ${time.localDisplay} (${time.timeZone}) / JD ${time.julianDay}`);
+    rawLog.time = time.raw.time;
+  } catch (err) {
+    renderCell(container, 'FAIL', `${err.kind || err.name}: ${err.message}`);
+    rawLog.time = { error: String(err) };
+  }
+}
+
+async function checkSunStep() {
+  const altContainer = el('r-sun-altitude');
+  const azContainer = el('r-sun-azimuth');
+  const distContainer = el('r-sun-distance');
+  try {
+    const sun = await getSunInfo();
+    renderCell(altContainer, 'PASS', `${sun.data.altitudeGeometricDeg.toFixed(3)}° (geometric)`);
+    renderCell(azContainer, 'PASS', `${sun.data.azimuthDeg.toFixed(3)}°`);
+    renderCell(distContainer, 'PASS', `${sun.data.distanceAu.toFixed(6)} AU (${sun.data.distanceKm.toFixed(0)} km)`);
+    rawLog.sun = sun.raw;
+  } catch (err) {
+    const msg = `${err.kind || err.name}: ${err.message}`;
+    renderCell(altContainer, 'FAIL', msg);
+    renderCell(azContainer, 'FAIL', '(위와 동일한 오류)');
+    renderCell(distContainer, 'FAIL', '(위와 동일한 오류)');
+    rawLog.sun = { error: String(err) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 진단 패널 — fetch()는 브라우저 보안상 실패 원인을 JS에 노출하지 않는다(전부
+// 동일한 "TypeError: Failed to fetch"). 그래서 원인을 스스로 단정하지 않고,
+// 요청된 6개 카테고리(Stellarium 미실행 / Remote Control 비활성 / CORS 실패 /
+// Local Network Access 거부 / mixed-content·보안 차단 / API 실패)로 나눠
+// 체크리스트만 제공하고, 실제 원인은 DevTools에서 확인하도록 안내한다.
+// ---------------------------------------------------------------------------
+function addDiagSection(container, title, items) {
+  const heading = document.createElement('h3');
+  heading.textContent = title;
+  container.appendChild(heading);
+  const list = document.createElement('ul');
+  items.forEach((text) => {
+    const li = document.createElement('li');
+    li.textContent = text;
+    list.appendChild(li);
+  });
+  container.appendChild(list);
+}
+
+function renderDiagnostics(reachable, connectOk) {
+  const container = el('diagnostics');
+  container.textContent = '';
+  if (reachable && connectOk) {
+    return;
+  }
+
+  const box = document.createElement('div');
+  box.className = 'diag-box';
+
+  const intro = document.createElement('p');
+  intro.className = 'hint';
+  intro.textContent =
+    '브라우저 보안 정책상 fetch() 실패 원인은 JS에 노출되지 않습니다(전부 동일한 오류로 보입니다). ' +
+    '아래 카테고리를 순서대로 확인하고, 정확한 원인은 브라우저 DevTools의 Console/Network 탭에서 확인하세요.';
+  box.appendChild(intro);
+
+  addDiagSection(box, '1. Stellarium이 실행 중이 아님', [
+    'Stellarium 26.2 애플리케이션 자체가 켜져 있는지 확인',
+  ]);
+  addDiagSection(box, '2. Remote Control 플러그인이 비활성화됨', [
+    'F2 → Plugins → Remote Control → "Server enabled" 체크박스가 켜져 있는지 확인 (autostart=false가 기본값이므로 Stellarium을 켤 때마다 매번 다시 켜야 함)',
+  ]);
+  addDiagSection(box, '3. CORS 실패', [
+    `Stellarium Remote Control 설정의 "Enable CORS for the following origin"이 켜져 있고, origin 값이 지금 이 페이지의 origin(${location.origin})과 정확히 일치하는지 확인 (scheme+host만, 경로 없이. 와일드카드 미지원)`,
+  ]);
+  addDiagSection(box, '4. Local Network Access 권한 거부', [
+    '브라우저가 "로컬 네트워크의 기기를 찾고 연결"하는 권한 프롬프트를 띄웠는데 거부하지 않았는지 확인 (위 1번 섹션의 permission 상태 참고)',
+    '거부했다면 브라우저 주소창 왼쪽 사이트 정보 아이콘 → 사이트 설정에서 "로컬 네트워크"를 다시 허용으로 변경',
+  ]);
+  addDiagSection(box, '5. Mixed-content/보안 차단', [
+    'localhost/127.0.0.1은 표준상 "potentially trustworthy" origin이라 일반적으로 mixed-content로 차단되지 않지만, Stellarium이 실제로 그 정확한 호스트명으로 응답하는지, 사설 IP 등 다른 주소로 우회되지 않았는지 확인',
+    '브라우저 확장 프로그램(광고 차단기 등)이 요청을 가로채고 있지 않은지 확인 (Console에 확장 프로그램발 오류가 있는지)',
+  ]);
+  addDiagSection(box, '6. API 실패 (연결은 되었지만 응답 오류)', [
+    '이미 다른 프로그램이 8090 포트를 점유하고 있지 않은지 확인',
+    '위 표에서 개별 항목(location/time/sun)이 checkConnection은 PASS인데 개별적으로 FAIL이면, Stellarium 쪽 응답 형식 문제이므로 raw responses(debug)를 펼쳐서 실제 응답을 확인',
+  ]);
+
+  container.appendChild(box);
+}
+
+el('btn-run').addEventListener('click', async () => {
+  el('btn-run').disabled = true;
+  el('btn-run').textContent = 'Running...';
+  for (const id of ['r-reachability', 'r-connection', 'r-location', 'r-elevation', 'r-time', 'r-sun-altitude', 'r-sun-azimuth', 'r-sun-distance']) {
+    renderCell(el(id), 'INFO', '실행 중...');
+  }
+
+  const reachable = await checkReachability();
+  const connectOk = await checkConnectionStep();
+  await checkLocationStep();
+  await checkTimeStep();
+  await checkSunStep();
+  renderDiagnostics(reachable, connectOk);
+  updateRaw();
+
+  el('btn-run').disabled = false;
+  el('btn-run').textContent = 'Run checks (read-only)';
+});
+</script>
+</body>
+</html>
