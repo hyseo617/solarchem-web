@@ -1,0 +1,30 @@
+// Solarchem — Stellarium condition script template
+// Stellarium 26.2 StelMainScriptAPI: core.setObserverLocation() /
+// core.setTimezone() / core.setDate(). Verified live against a running
+// Stellarium 26.2 instance (see
+// reports/validation/phase9h-b-datetime-script-validation.md) — including
+// core.setTimezone()'s single-argument IANA-name form (a second argument
+// is not required and is not used here).
+
+// ===== 아래 5개 값만 수정하세요 =====
+
+// 위도: 북위 + / 남위 -
+var LATITUDE_DEG = 37.456459045410156;
+
+// 경도: 동경 + / 서경 -
+var LONGITUDE_DEG = 126.70514678955078;
+
+// 관측지 해발고도(m)
+var ALTITUDE_M = 43;
+
+// 시간대(IANA timezone)
+var TIMEZONE = "Asia/Seoul";
+
+// 위 시간대 기준 현지 날짜와 시각
+var DATE_TIME = "2026-08-13T06:43:48";
+
+// ===== 아래는 수정하지 마세요 =====
+
+core.setObserverLocation(LONGITUDE_DEG, LATITUDE_DEG, ALTITUDE_M, 0, "Solarchem condition", "Earth");
+core.setTimezone(TIMEZONE);
+core.setDate(DATE_TIME, "local");

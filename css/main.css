@@ -1,0 +1,1791 @@
+/* SolarChem — Final Analysis Website UI
+   Light editorial layout. Structural styles only — no scientific values here. */
+
+/* ---------------------------------------------------------------
+   RESET / BASE
+   --------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding-bottom: var(--rail-height);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.drawer-open {
+  overflow: hidden;
+}
+
+/* .text-en / .text-ko mark language for a11y (lang attribute pairing) only;
+   font-family is never branched by language — everything uses --font-ui
+   except equations (--font-math). The hero wordmark is a static image. */
+.text-en,
+.text-ko {
+  font-family: var(--font-ui);
+}
+
+/* Hangul doesn't take Latin-style letter-tracking or uppercase transforms —
+   reset both wherever an element (or its lang="ko" content) is Korean, so
+   small labels read as normal Korean instead of stretched pseudo-caps. */
+:lang(ko) {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+h1, h2, h3, p, dl, dd, dt, ol, ul, figure {
+  margin: 0;
+  padding: 0;
+}
+
+ol, ul {
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+sub, sup {
+  font-size: 0.7em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--color-ink);
+  color: var(--color-canvas);
+  padding: var(--space-2xs) var(--space-sm);
+  z-index: 100;
+}
+
+.skip-link:focus {
+  left: var(--space-sm);
+  top: var(--space-sm);
+}
+
+.hairline {
+  border: 0;
+  border-top: var(--rule-width) solid var(--rule-color);
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------
+   FIXED FOOTER RAIL (persistent navigation + ephemeris trigger)
+   --------------------------------------------------------------- */
+
+.site-rail {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  height: var(--rail-height);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 var(--content-pad);
+  background: var(--color-canvas);
+  border-top: var(--rule-width) solid var(--rule-color);
+}
+
+.site-rail__mini {
+  font-size: var(--text-micro);
+  letter-spacing: 0.04em;
+  color: var(--color-ink-soft);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.site-rail__mini-sep {
+  color: var(--color-gray);
+  margin: 0 var(--space-2xs);
+}
+
+.site-rail__nav {
+  justify-self: center;
+}
+
+.site-rail__nav ol {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.site-rail__nav a {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3xs);
+  font-size: var(--text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+  padding-bottom: 2px;
+  border-bottom: 1px solid transparent;
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+
+.site-rail__nav a:hover,
+.site-rail__nav a:focus-visible {
+  color: var(--color-ink);
+}
+
+.site-rail__nav a.is-active {
+  color: var(--color-ink);
+  font-weight: 700;
+  border-bottom-color: var(--color-ink);
+}
+
+.site-rail__nav .idx-num {
+  color: var(--color-gray);
+}
+
+.site-rail__nav a.is-active .idx-num {
+  color: var(--color-ink);
+}
+
+.site-rail__triggers {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.site-rail__trigger {
+  font-size: var(--text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-ink);
+  padding-bottom: 2px;
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+
+/* How to use — same control, deliberately quieter than the Ephemeris
+   trigger so it doesn't compete with the primary navigation. */
+.site-rail__trigger--quiet {
+  color: var(--color-gray);
+  border-bottom-color: var(--color-rule);
+}
+
+.site-rail__trigger:hover,
+.site-rail__trigger:focus-visible {
+  color: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+.site-rail__trigger[aria-expanded="true"] {
+  color: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+@media (max-width: 767px) {
+  .site-rail {
+    grid-template-columns: auto auto auto;
+    gap: var(--space-sm);
+  }
+
+  .site-rail__nav {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .site-rail__nav ol {
+    gap: var(--space-sm);
+  }
+
+  .site-rail__mini {
+    font-size: 0.625rem;
+  }
+
+  /* Touch hit-area (HIG ~44pt target), same cancel-via-negative-margin
+     technique as .control-link — desktop unchanged. */
+  .site-rail__trigger {
+    display: inline-block;
+    padding-top: 1.625rem;
+    margin-top: -1.625rem;
+  }
+}
+
+/* ---------------------------------------------------------------
+   EPHEMERIS DRAWER
+   --------------------------------------------------------------- */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  bottom: var(--rail-height);
+  z-index: 55;
+  background: rgba(16, 16, 16, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-standard) var(--ease-standard);
+}
+
+.drawer-backdrop.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ephemeris-drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--rail-height);
+  z-index: 58;
+  height: min(65vh, 44rem);
+  background: var(--color-canvas);
+  border-top: var(--rule-width) solid var(--rule-color);
+  transform: translateY(100%);
+  transition: transform var(--duration-standard) var(--ease-standard);
+  overflow: hidden;
+}
+
+.ephemeris-drawer.is-open {
+  transform: translateY(0);
+}
+
+.ephemeris-drawer__inner {
+  height: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-md) var(--content-pad) 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ephemeris-drawer__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: var(--rule-width) solid var(--rule-color);
+}
+
+.ephemeris-drawer__heading h2 {
+  font-family: var(--font-ui);
+  font-size: var(--text-h2);
+  font-weight: 700;
+}
+
+.ephemeris-drawer__meta {
+  margin-top: var(--space-3xs);
+  font-size: var(--text-small);
+  color: var(--color-gray);
+}
+
+.ephemeris-drawer__close {
+  font-size: var(--text-small);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-ink);
+  padding-bottom: 2px;
+  flex-shrink: 0;
+}
+
+/* Touch hit-area (HIG ~44pt target), same cancel-via-negative-margin
+   technique as .control-link — desktop unchanged. The invisible padding
+   grows upward into the drawer header's own padding, not over the title
+   (justify-content: space-between keeps them apart horizontally). */
+@media (max-width: 767px) {
+  .ephemeris-drawer__close {
+    display: inline-block;
+    padding-top: 1.375rem;
+    margin-top: -1.375rem;
+  }
+}
+
+.ephemeris-drawer__close:hover,
+.ephemeris-drawer__close:focus-visible {
+  color: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+/* .table-scroll only declares overflow-x: auto, but per the CSS overflow
+   spec, a non-visible overflow-x forces the computed overflow-y to auto
+   too (confirmed: getComputedStyle here reports overflow-y: auto even
+   though nothing sets it, and overriding it to overflow-y: visible is a
+   no-op — the spec re-forces it back to auto). That silently made
+   .table-scroll a second, nested vertical scroll container, so the
+   sticky thead below was anchoring to .table-scroll (which never
+   actually scrolled far) instead of visibly following .ephemeris-drawer__body's
+   real scroll. Fix: let .table-scroll itself be the one real scroll
+   container (both axes — already its computed behavior) and stop
+   .ephemeris-drawer__body from being a second one, so there is only one
+   scrolling ancestor for the sticky thead to anchor to. min-height: 0 is
+   required on both flex children so their content size doesn't force the
+   drawer to overflow visibly (drawer-level overflow: hidden would clip
+   instead of scroll). Table 1/2's own .table-scroll is untouched — this
+   is scoped to the drawer. */
+.ephemeris-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--space-md) 0;
+}
+
+.ephemeris-drawer__body .table-scroll {
+  height: 100%;
+  min-height: 0;
+}
+
+/* border-collapse: collapse (.editorial-table's default, kept for Table
+   1/2) makes browsers ignore position: sticky on <th>/<td> — cells can't
+   act as a sticky containing block once their borders are collapsed into
+   the table. border-spacing: 0 keeps the same collapsed look without
+   that restriction, scoped to just this table. */
+.ephemeris-drawer__table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Table header stays visible while the 13-row body scrolls inside
+   .ephemeris-drawer__body (the actual overflow-y:auto container) — the
+   header row needs its own opaque background so scrolled-past rows don't
+   show through underneath it. */
+.ephemeris-drawer__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-canvas);
+}
+
+.ephemeris-drawer__table th[scope="row"] {
+  font-weight: 700;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.ephemeris-drawer__table tbody tr[data-ephemeris-row] {
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.ephemeris-drawer__table tbody tr[data-ephemeris-row]:hover {
+  background: var(--color-canvas-raised);
+}
+
+.ephemeris-drawer__table tbody tr[data-ephemeris-row]:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: -2px;
+}
+
+/* Selection is carried by a soft neutral background tint plus an underline
+   on the condition-ID (Phase 8B-8: no decorative accent color in UI chrome).
+   aria-selected/keyboard state is unchanged. */
+.ephemeris-drawer__table tbody tr[data-ephemeris-row][aria-selected="true"] {
+  background: var(--color-canvas-raised);
+}
+
+.ephemeris-drawer__table tbody tr[data-ephemeris-row][aria-selected="true"] th[scope="row"] {
+  text-decoration: underline;
+}
+
+.ephemeris-drawer__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-top: var(--rule-width) solid var(--rule-color);
+  font-size: var(--text-micro);
+  color: var(--color-gray);
+}
+
+@media (max-width: 767px) {
+  .ephemeris-drawer {
+    height: min(85vh, 44rem);
+  }
+
+  .ephemeris-drawer__table {
+    min-width: 50rem;
+  }
+}
+
+/* ---------------------------------------------------------------
+   INFO DIALOGS (Phase 8B-7) — small centered popups, shares the
+   ephemeris drawer's .drawer-backdrop and focus/ESC/backdrop-click
+   pattern (js/ui-shell.js initInfoDialog()), not its slide-up panel
+   styling: these are short, single-purpose dialogs, not a secondary
+   comparison view.
+   --------------------------------------------------------------- */
+
+.info-dialog {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 58;
+  width: min(32rem, calc(100vw - 2 * var(--content-pad)));
+  max-height: min(80vh, 44rem);
+  overflow-y: auto;
+  background: var(--color-canvas);
+  border: var(--rule-width) solid var(--rule-color);
+  transform: translate(-50%, -48%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-standard) var(--ease-standard),
+              transform var(--duration-standard) var(--ease-standard);
+}
+
+.info-dialog.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+.info-dialog__inner {
+  padding: var(--space-lg) var(--content-pad);
+}
+
+.info-dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: var(--rule-width) solid var(--rule-color);
+  margin-bottom: var(--space-md);
+}
+
+.info-dialog__title {
+  font-family: var(--font-ui);
+  font-size: var(--text-h2);
+  font-weight: 700;
+}
+
+.info-dialog__close {
+  font-size: var(--text-small);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-ink);
+  padding-bottom: 2px;
+  flex-shrink: 0;
+}
+
+/* Touch hit-area (HIG ~44pt target), same cancel-via-negative-margin
+   technique as .control-link — desktop unchanged. */
+@media (max-width: 767px) {
+  .info-dialog__close {
+    display: inline-block;
+    padding-top: 1.375rem;
+    margin-top: -1.375rem;
+  }
+}
+
+.info-dialog__close:hover,
+.info-dialog__close:focus-visible {
+  color: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+.info-dialog__body p {
+  margin-bottom: var(--space-sm);
+}
+
+.how-to-use__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.how-to-use__steps li {
+  padding-top: var(--space-md);
+  border-top: var(--rule-width) solid var(--rule-color);
+}
+
+.how-to-use__steps li:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.how-to-use__step-title {
+  font-size: var(--text-body);
+  font-weight: 700;
+  margin-bottom: var(--space-2xs);
+}
+
+/* Connection-failure steps have no "Step N" heading of their own (unlike
+   .how-to-use__steps), so they need visible list numbers to read as an
+   ordered sequence. */
+.connection-dialog__steps {
+  list-style: decimal;
+  padding-left: 1.25em;
+  margin-bottom: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.connection-dialog__steps li {
+  padding-left: var(--space-3xs);
+}
+
+.connection-dialog__steps li p {
+  display: inline;
+  margin: 0;
+}
+
+.how-to-use__script-controls {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.how-to-use__script-status {
+  font-size: var(--text-micro);
+  color: var(--color-gray);
+}
+
+/* Revision 2 — script editor dialog: wider than the standard info-dialog
+   so the code stays readable, with an editable textarea in place of the
+   removed .ssc download link. */
+.info-dialog--wide {
+  width: min(44rem, calc(100vw - 2 * var(--content-pad)));
+}
+
+.script-editor__textarea {
+  display: block;
+  width: 100%;
+  min-height: 20rem;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  background: var(--color-canvas-raised);
+  border: var(--rule-width) solid var(--rule-color);
+  color: var(--color-ink);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: var(--text-small);
+  line-height: 1.5;
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+
+.script-editor__textarea:focus-visible {
+  border-color: var(--color-ink);
+  outline: none;
+}
+
+.script-editor__controls {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+@media (max-width: 767px) {
+  .info-dialog {
+    width: calc(100vw - 2 * var(--content-pad));
+    max-height: 85vh;
+  }
+
+  .info-dialog--wide {
+    width: calc(100vw - 2 * var(--content-pad));
+  }
+
+  .script-editor__textarea {
+    min-height: 14rem;
+  }
+}
+
+/* ---------------------------------------------------------------
+   SITE HEADER / INTRO
+   --------------------------------------------------------------- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--color-canvas);
+  border-bottom: var(--rule-width) solid var(--rule-color);
+}
+
+.site-header__inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-sm) var(--content-pad);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-lg);
+}
+
+.site-header__brand {
+  font-size: var(--text-brand);
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.site-header__nav ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.site-header__nav a {
+  font-size: var(--text-small);
+  color: var(--color-ink-soft);
+  padding-bottom: 2px;
+  border-bottom: 1px solid transparent;
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+
+.site-header__nav a:hover,
+.site-header__nav a:focus-visible {
+  color: var(--color-ink);
+}
+
+/* Mirrors .site-rail__nav a.is-active — the header nav duplicates the
+   footer rail's section links, so both must give the same current-section
+   feedback (data-rail-link is shared; js/ui-shell.js's existing
+   initActiveSectionNav() already toggles .is-active on every element
+   matching [data-rail-link], header included, with no JS change needed). */
+.site-header__nav a.is-active {
+  color: var(--color-ink);
+  font-weight: 700;
+  border-bottom-color: var(--color-ink);
+}
+
+.site-intro {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-lg) var(--content-pad);
+}
+
+.site-intro__title {
+  font-size: var(--text-intro-h1);
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: var(--space-sm);
+}
+
+.site-intro__statement {
+  font-size: var(--text-small);
+  color: var(--color-ink-soft);
+  max-width: 42rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 767px) {
+  .site-header__inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+  }
+
+  /* Touch hit-area (HIG ~44pt target), same cancel-via-negative-margin
+     technique as .control-link — desktop unchanged. */
+  .site-header__nav a {
+    display: inline-block;
+    padding-top: 1.375rem;
+    margin-top: -1.375rem;
+  }
+}
+
+/* ---------------------------------------------------------------
+   SECTION SHELL
+   --------------------------------------------------------------- */
+
+.section {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-2xl) var(--content-pad);
+  border-top: var(--rule-width) solid var(--rule-color);
+  /* Anchor-nav targets (#experiment etc.) must not land under the now-sticky
+     .site-header — jumping to a section keeps its heading visible below the
+     header instead of tucked behind it. initActiveSectionNav()'s
+     IntersectionObserver rootMargin is unrelated to this and needs no change. */
+  scroll-margin-top: var(--header-height);
+}
+
+.section__head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-lg);
+  align-items: baseline;
+  margin-bottom: var(--space-xl);
+}
+
+.section__index {
+  font-family: var(--font-ui);
+  font-size: var(--text-section-index);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-gray);
+  font-variant-numeric: tabular-nums;
+}
+
+h2.section__title {
+  font-family: var(--font-ui);
+  font-size: var(--text-h2);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+/* Revision 3 — was --text-h2 (reads as a second heading, same tier as the
+   section title itself). Sized to ~1.2x the Experiment field value text
+   (.field-input, --text-body) instead, so it reads as a lead sentence
+   under the heading, not a second heading. */
+.section__statement {
+  font-size: var(--text-h3);
+  font-weight: 400;
+  color: var(--color-ink-soft);
+  max-width: 64rem;
+  margin-bottom: var(--space-lg);
+}
+
+/* ---------------------------------------------------------------
+   FIELD GROUPS (Experiment)
+   --------------------------------------------------------------- */
+
+.experiment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg) var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.field-group {
+  padding-top: var(--space-sm);
+  border-top: var(--rule-width) solid var(--rule-color);
+}
+
+.field-label {
+  font-size: var(--text-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-gray);
+  margin-bottom: var(--space-sm);
+}
+
+.field-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.field-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.field-input-label {
+  font-size: var(--text-micro);
+  color: var(--color-gray);
+}
+
+.field-input {
+  background: transparent;
+  border: 0;
+  border-bottom: var(--rule-width) solid var(--rule-color);
+  padding: var(--space-2xs) 0;
+  font-size: var(--text-body);
+  color: var(--color-ink);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.field-input:focus-visible {
+  border-color: var(--color-ink);
+  outline: none;
+}
+
+.option-list {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.option-item {
+  font-size: var(--text-body);
+  padding-bottom: var(--space-3xs);
+  border-bottom: 2px solid transparent;
+  color: var(--color-ink-soft);
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+
+/* Touch/mobile hit-area only, same cancel-via-negative-margin technique
+   as .control-link (see below) — desktop unchanged. */
+@media (max-width: 767px) {
+  .option-item {
+    display: inline-block;
+    padding-top: 1rem;
+    margin-top: -1rem;
+  }
+}
+
+.option-item:hover {
+  color: var(--color-ink);
+}
+
+.option-item[aria-pressed="true"] {
+  color: var(--color-ink);
+  font-weight: 700;
+  border-bottom-color: var(--color-ink);
+}
+
+@media (max-width: 1199px) {
+  .experiment-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .experiment-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------
+   ALTITUDE SELECTOR
+   --------------------------------------------------------------- */
+
+.altitude-selector {
+  margin-bottom: var(--space-xl);
+  padding-top: var(--space-sm);
+  border-top: var(--rule-width) solid var(--rule-color);
+}
+
+.altitude-index {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: var(--space-2xs);
+}
+
+.altitude-option {
+  width: 100%;
+  padding: var(--space-xs) 0;
+  text-align: center;
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-soft);
+  border-bottom: 2px solid var(--rule-color);
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard),
+              font-weight var(--duration-fast) var(--ease-standard);
+}
+
+.altitude-option:hover {
+  color: var(--color-ink);
+}
+
+.altitude-option[aria-pressed="true"] {
+  color: var(--color-ink);
+  font-weight: 700;
+  border-bottom-color: var(--color-ink);
+}
+
+.altitude-option--max {
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 1199px) {
+  .altitude-index {
+    grid-template-columns: repeat(7, 1fr);
+    row-gap: var(--space-sm);
+  }
+}
+
+@media (max-width: 767px) {
+  .altitude-index {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* Touch hit-area (HIG ~44pt target): real padding here, not the
+     invisible negative-margin trick — these are grid cells, so growing
+     the whole grid uniformly (all 13 buttons, same amount) reads as one
+     consistent rhythm change, not an isolated button growing. Desktop
+     keeps the tighter --space-xs padding. */
+  .altitude-option {
+    padding: var(--space-sm) 0;
+  }
+}
+
+/* ---------------------------------------------------------------
+   EPHEMERIS SHELL
+   --------------------------------------------------------------- */
+
+.ephemeris-shell {
+  padding-top: var(--space-sm);
+  border-top: var(--rule-width) solid var(--rule-color);
+}
+
+.ephemeris-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.ephemeris-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.ephemeris-field dt {
+  font-size: var(--text-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-gray);
+}
+
+.data-slot {
+  font-size: var(--text-body);
+  color: var(--color-gray);
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+/* Applied in place of .data-slot once canonical data has loaded successfully
+   — normal weight/color signals "this is real data", not a placeholder. */
+.data-value {
+  font-style: normal;
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Applied in place of .data-slot / .data-value if canonical data failed to
+   load — visually distinct from both the placeholder and the loaded state. */
+.data-error {
+  font-size: var(--text-body);
+  color: var(--color-ink);
+  font-style: normal;
+  letter-spacing: 0.02em;
+}
+
+/* ---------------------------------------------------------------
+   LIVE STELLARIUM STATUS (Phase 8B-6 Step 2)
+   Same hairline-and-micro-label vocabulary as .ephemeris-shell /
+   .chart-context — a status line and one small control, not a dashboard
+   card.
+   --------------------------------------------------------------- */
+
+.live-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: var(--rule-width) solid var(--rule-color);
+}
+
+.live-status__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+}
+
+.live-status__label {
+  font-size: var(--text-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-gray);
+}
+
+.live-status__value {
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.live-status__connect,
+.live-status__return {
+  font-size: var(--text-small);
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+.live-status__return {
+  color: var(--color-gray);
+  border-bottom-color: var(--color-rule);
+}
+
+.live-status__connect:disabled {
+  color: var(--color-gray);
+  border-bottom-color: var(--color-rule);
+  cursor: not-allowed;
+}
+
+.live-status__message {
+  font-size: var(--text-micro);
+  color: var(--color-gray);
+  flex-basis: 100%;
+}
+
+.live-status__message.data-error {
+  color: var(--color-ink);
+}
+
+.live-molecular-status {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: var(--rule-width) solid var(--rule-color);
+}
+
+.live-molecular-status__line {
+  font-size: var(--text-micro);
+  color: var(--color-gray);
+  margin-bottom: var(--space-xs);
+}
+
+.live-molecular-status__values {
+  display: flex;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.live-molecular-status__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.live-molecular-status__item dt {
+  font-size: var(--text-micro);
+  color: var(--color-gray);
+}
+
+.live-molecular-status__item dd {
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.ephemeris-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: var(--rule-width) solid var(--rule-color);
+}
+
+.ephemeris-sources {
+  font-size: var(--text-micro);
+  color: var(--color-gray);
+  letter-spacing: 0.04em;
+}
+
+.control-link {
+  font-size: var(--text-small);
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-ink);
+  padding-bottom: 2px;
+}
+
+.control-link[aria-disabled="true"] {
+  color: var(--color-gray);
+  border-bottom-color: var(--color-rule);
+  cursor: not-allowed;
+}
+
+/* Touch/mobile hit-area only (HIG ~44pt target) — padding-top is cancelled
+   by an equal negative margin-top, so the clickable border-box grows
+   upward into the surrounding whitespace while the visible text and its
+   underline stay pinned exactly where they render today. Desktop is
+   untouched (mouse pointer needs no help here), and the control never
+   grows into a visible button. */
+@media (max-width: 767px) {
+  .control-link {
+    display: inline-block;
+    padding-top: 1.375rem;
+    margin-top: -1.375rem;
+  }
+}
+
+@media (max-width: 1199px) {
+  .ephemeris-fields {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .ephemeris-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------
+   CHART AREAS (Solar Spectrum / Molecular Response)
+   --------------------------------------------------------------- */
+
+.chart-area {
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  border-top: var(--rule-width) solid var(--rule-color);
+  border-bottom: var(--rule-width) solid var(--rule-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  margin-top: var(--space-lg);
+}
+
+.chart-area__label {
+  font-size: var(--text-small);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-gray);
+}
+
+.chart-area__sublabel {
+  font-size: var(--text-micro);
+  color: var(--color-gray);
+}
+
+.chart-area--result {
+  aspect-ratio: 16 / 8;
+  margin-top: var(--space-sm);
+}
+
+@media (max-width: 767px) {
+  .chart-area {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+/* SVG tick/axis-label font-size is authored in viewBox units, so it scales
+   down with the container on narrow screens — below ~640px that makes
+   labels illegible. Rather than shrinking the chart, let it scroll
+   horizontally at a legible minimum width, the same pattern already used
+   for the ephemeris drawer table (.table-scroll). */
+.chart-scroll {
+  overflow-x: auto;
+}
+
+@media (max-width: 767px) {
+  .chart-scroll .chart-area {
+    min-width: 640px;
+  }
+}
+
+/* Solar Spectrum / Molecular Response provenance + selected-condition
+   context line, directly beneath the chart box (outside the bordered
+   chart-area, per the editorial "chart as figure, not dashboard card"
+   direction). */
+.chart-context {
+  margin-top: var(--space-sm);
+  font-size: var(--text-micro);
+  color: var(--color-gray);
+  letter-spacing: 0.02em;
+}
+
+.chart-context__provenance {
+  margin-left: var(--space-2xs);
+}
+
+.chart-context__provenance::before {
+  content: '·';
+  margin-right: var(--space-2xs);
+}
+
+/* Vanilla SVG chart primitives shared by Solar Spectrum and Molecular
+   Response (js/charts.js). Thin hairlines, restrained violet accent —
+   no boxed card, no dashboard gridlines. */
+
+.chart-svg {
+  display: block;
+  overflow: visible;
+}
+
+.chart-axis {
+  stroke: var(--color-ink);
+  stroke-width: 1;
+}
+
+.chart-tick {
+  stroke: var(--color-rule);
+  stroke-width: 1;
+}
+
+.chart-tick-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  fill: var(--color-gray);
+}
+
+.chart-axis-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  fill: var(--color-gray);
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 2;
+  transition: opacity var(--duration-fast) var(--ease-standard),
+              stroke-width var(--duration-fast) var(--ease-standard);
+}
+
+.chart-line--spectrum {
+  stroke: var(--chart-accent);
+  stroke-width: 1.5;
+}
+
+/* Three compound curves — distinguished by color, dash pattern, AND a
+   direct end-label together (never color alone). */
+.chart-line--benzophenone {
+  stroke: var(--color-ink);
+}
+
+.chart-line--luteolin {
+  stroke: var(--chart-accent);
+  stroke-dasharray: 7 4;
+}
+
+.chart-line--quercetin {
+  stroke: var(--color-gray);
+  stroke-dasharray: 1.5 3.5;
+  stroke-linecap: round;
+}
+
+.chart-end-label {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  dominant-baseline: middle;
+  /* .chart-line--<compound> is shared with the <path> curve for color and
+     also carries stroke-dasharray/stroke-linecap meant only for that path;
+     without this reset the label <text> inherits an unintended stroke
+     (and, for luteolin/quercetin, a dash pattern) on top of its fill,
+     which Chromium's print-to-PDF text export renders as a doubled/ghosted
+     glyph. */
+  stroke: none;
+}
+
+.chart-end-label.chart-line--benzophenone { fill: var(--color-ink); }
+.chart-end-label.chart-line--luteolin { fill: var(--chart-accent); }
+.chart-end-label.chart-line--quercetin { fill: var(--color-gray); }
+
+.chart-series {
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.chart-series.is-dimmed {
+  opacity: 0.32;
+}
+
+.chart-series.is-emphasized .chart-line {
+  stroke-width: 3;
+}
+
+.chart-marker-line {
+  stroke: var(--chart-accent);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.chart-marker-dot {
+  stroke: var(--color-canvas);
+  stroke-width: 1.5;
+}
+
+.chart-marker-dot.chart-line--benzophenone { fill: var(--color-ink); }
+.chart-marker-dot.chart-line--luteolin { fill: var(--chart-accent); }
+.chart-marker-dot.chart-line--quercetin { fill: var(--color-gray); }
+
+/* Phase 8B-6 Step 2 — live mode altitude guide: x-position only, no
+   per-compound y-value exists for it, so the dots stay hidden. */
+.chart-marker.is-altitude-only .chart-marker-dot {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-line,
+  .chart-series {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------
+   RESULTS
+   --------------------------------------------------------------- */
+
+.result-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xl);
+  margin-bottom: var(--space-2xl);
+}
+
+/* Revision 2 — the divider above this note is now a full-width <hr
+   class="hairline"> in the markup (same component every other section
+   divider uses), instead of a border-top living on this max-width-
+   constrained element, which had made the rule read shorter than the
+   other dividers in the same column. */
+/* Revision 3 — was 54rem, which was narrower than the natural width of
+   this sentence at desktop widths by only a few px, forcing an
+   unnecessary second line. Widened to 64rem to match .section__statement
+   (the same content column's other prose width) instead of shrinking the
+   font to force a fit. */
+.result-scope-note {
+  max-width: 64rem;
+  margin-top: var(--space-sm);
+  margin-bottom: var(--space-xl);
+  font-size: var(--text-small);
+  color: var(--color-gray);
+}
+
+.result-item {
+  padding-top: var(--space-lg);
+  border-top: var(--rule-width) solid var(--rule-color);
+}
+
+.result-item__id {
+  display: block;
+  font-size: var(--text-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-gray);
+  margin-bottom: var(--space-sm);
+}
+
+/* Revision 3 — was --text-h2 (same size as the 04 Results section
+   heading's own visual weight class of content). Dropped to --text-h3 —
+   clearly a title, clearly smaller than the section heading, and shared
+   with .table-shell__title so graph titles and table titles read as the
+   same content tier (see TABLE SHELL below). */
+.result-item__statement {
+  font-size: var(--text-h3);
+  font-weight: 400;
+  color: var(--color-ink-soft);
+  max-width: 64rem;
+}
+
+.result-figure {
+  margin-top: var(--space-lg);
+}
+
+.result-figure__media {
+  overflow-x: auto;
+  border-top: var(--rule-width) solid var(--rule-color);
+  border-bottom: var(--rule-width) solid var(--rule-color);
+  padding: var(--space-sm) 0;
+}
+
+.result-figure__media:focus-within {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+.result-figure__link {
+  display: block;
+}
+
+.result-figure__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Revision 3 — was 54rem; several of these captions were only a few px
+   over that width at desktop, so they wrapped to a second line when
+   there was still room in the content column. Widened to 64rem (same
+   token as .section__statement/.result-scope-note) rather than shrinking
+   the font to force a one-line fit — a genuinely long caption still wraps
+   naturally, which is expected. */
+.result-item__caption {
+  font-size: var(--text-small);
+  color: var(--color-gray);
+  margin-top: var(--space-sm);
+  max-width: 64rem;
+}
+
+@media (max-width: 767px) {
+  .result-figure__media {
+    margin-right: calc(var(--content-pad) * -1);
+    margin-left: calc(var(--content-pad) * -1);
+    padding-right: var(--content-pad);
+    padding-left: var(--content-pad);
+  }
+
+  .result-figure__media--standard .result-figure__link {
+    min-width: 42rem;
+  }
+
+  .result-figure__media--wide .result-figure__link {
+    min-width: 56rem;
+  }
+}
+
+/* ---------------------------------------------------------------
+   TABLE SHELL
+   --------------------------------------------------------------- */
+
+.table-shell {
+  padding-top: var(--space-lg);
+  border-top: var(--rule-width) solid var(--rule-color);
+}
+
+.table-shell--results + .table-shell--results {
+  margin-top: var(--space-2xl);
+}
+
+/* Revision 3 — was reusing .field-label (--text-micro, small uppercase
+   structural label), which made Table 1/2's own title read like a form
+   field label rather than a content title at the same level as a Result
+   figure title. Shares .result-item__statement's size/weight/color so
+   graph titles and table titles are the same content-title tier. */
+.table-shell__title {
+  font-size: var(--text-h3);
+  font-weight: 400;
+  color: var(--color-ink-soft);
+  margin-bottom: var(--space-sm);
+}
+
+.table-shell__caption {
+  max-width: 64rem;
+  margin-bottom: var(--space-md);
+  font-size: var(--text-small);
+  color: var(--color-gray);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.table-scroll:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+.editorial-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 34rem;
+}
+
+.editorial-table--results {
+  min-width: 58rem;
+}
+
+.editorial-table--results th,
+.editorial-table--results td {
+  vertical-align: top;
+}
+
+.editorial-table--results th[scope="row"],
+.editorial-table--results td {
+  font-variant-numeric: tabular-nums;
+}
+
+.editorial-table th,
+.editorial-table td {
+  text-align: left;
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) 0;
+  border-bottom: var(--rule-width) solid var(--rule-color);
+}
+
+.editorial-table th {
+  font-size: var(--text-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-gray);
+  font-weight: 400;
+}
+
+.editorial-table td {
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.table-note {
+  max-width: 54rem;
+  margin-top: var(--space-sm);
+  font-size: var(--text-small);
+  color: var(--color-gray);
+}
+
+/* ---------------------------------------------------------------
+   METHOD / EQUATIONS
+   --------------------------------------------------------------- */
+
+.equation-block {
+  padding: var(--space-lg) 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-lg);
+  row-gap: var(--space-2xs);
+  align-items: baseline;
+}
+
+.equation-block__id {
+  font-size: var(--text-small);
+  color: var(--color-gray);
+  align-self: start;
+}
+
+p.equation-block__formula {
+  font-family: var(--font-math);
+  font-size: clamp(1.25rem, 2.4vw, 1.75rem);
+  font-style: italic;
+}
+
+.equation-block__gloss {
+  grid-column: 2;
+  font-size: var(--text-small);
+  font-style: normal;
+  color: var(--color-gray);
+}
+
+@media (max-width: 767px) {
+  .equation-block {
+    grid-template-columns: 1fr;
+  }
+
+  .equation-block__gloss {
+    grid-column: 1;
+  }
+}
+
+/* ---------------------------------------------------------------
+   FOOTER
+   --------------------------------------------------------------- */
+
+.site-footer {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-lg) var(--content-pad) var(--space-2xl);
+  border-top: var(--rule-width) solid var(--rule-color);
+  font-size: var(--text-micro);
+  color: var(--color-gray);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------
+   PRINT / PDF
+   --------------------------------------------------------------- */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html {
+    background: #fff;
+    scroll-behavior: auto;
+  }
+
+  body {
+    padding-bottom: 0;
+    background: #fff;
+  }
+
+  body.drawer-open {
+    overflow: visible;
+  }
+
+  .site-rail,
+  .drawer-backdrop,
+  .drawer-backdrop.is-visible,
+  .ephemeris-drawer,
+  .ephemeris-drawer.is-open,
+  .ephemeris-drawer__close,
+  .live-status,
+  .live-molecular-status,
+  .info-dialog,
+  .info-dialog.is-open {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .site-header {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .site-intro {
+    padding-top: 0;
+  }
+
+  .section {
+    padding-top: var(--space-xl);
+    padding-bottom: var(--space-xl);
+  }
+
+  .section__head,
+  .result-item__id,
+  .result-item__statement,
+  .table-shell__title,
+  .table-shell__caption {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  #method {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .result-figure,
+  .result-figure__media,
+  .result-item__caption,
+  .table-shell,
+  .table-scroll table {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Experiment: keep each field group and the ephemeris summary as one
+     printable unit, and keep the Compound controls attached to the
+     Solar Altitude selector that follows them. */
+  #experiment .field-group,
+  #experiment .altitude-selector,
+  #experiment .ephemeris-shell {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #experiment #compound-select {
+    grid-column: 1 / -1;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  #experiment .altitude-selector {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  /* "View full ephemeris" only opens the interactive drawer, which is
+     itself hidden in print — drop the now-inert control, keep the source
+     line. */
+  .ephemeris-footer .control-link {
+    display: none !important;
+  }
+
+  /* Solar Spectrum / Molecular Response: keep the section description
+     (and, for Molecular Response, the compound controls) attached to the
+     chart below it so the heading and its content don't split apart. */
+  #solar-spectrum .section__statement,
+  #molecular-response .section__statement,
+  #molecular-response .option-list {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  #solar-spectrum .chart-scroll,
+  #molecular-response .chart-scroll {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .result-scope-note {
+    margin-bottom: var(--space-md);
+  }
+
+  .result-list {
+    gap: var(--space-xl);
+  }
+
+  .result-item {
+    padding-top: var(--space-md);
+  }
+
+  .result-figure {
+    margin-top: var(--space-md);
+  }
+
+  .result-figure__media,
+  .table-scroll,
+  .chart-scroll {
+    overflow: visible !important;
+  }
+
+  .result-figure__media--standard .result-figure__link,
+  .result-figure__media--wide .result-figure__link,
+  .chart-scroll .chart-area {
+    min-width: 0 !important;
+  }
+
+  .result-figure__image {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .result-figure__media--standard .result-figure__image {
+    max-height: 30vh;
+  }
+
+  .result-figure__media--wide .result-figure__image {
+    max-height: 40vh;
+  }
+
+  .editorial-table,
+  .editorial-table--results {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .editorial-table th,
+  .editorial-table td {
+    padding: 0.35rem 0.3rem 0.35rem 0;
+  }
+
+  .editorial-table th {
+    font-size: 8pt;
+  }
+
+  .editorial-table td {
+    font-size: 9pt;
+  }
+
+  .site-footer {
+    padding-bottom: 0;
+  }
+}

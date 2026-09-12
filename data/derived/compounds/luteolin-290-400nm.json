@@ -1,0 +1,584 @@
+{
+  "compoundId": "luteolin",
+  "name": "Luteolin",
+  "cas": "491-70-3",
+  "class": "flavone",
+  "solvent": "methanol",
+  "source": {
+    "database": "PhotochemCAD",
+    "datasetId": "FL077",
+    "rawFile": "data/raw/luteolin.txt",
+    "rawHeader": "Wavelength (nm)\tFL077 [11] 491-70-3, Luteolin [C]",
+    "rawSha256": "a133bc28017393754ae3aea189b21666830c723fe617cbc6256b3fca6e2982ca"
+  },
+  "grid": {
+    "startNm": 290,
+    "endNm": 400,
+    "stepNm": 1,
+    "points": 111
+  },
+  "epsilonUnit": "L mol^-1 cm^-1",
+  "sigmaUnit": "cm^2 molecule^-1",
+  "interpolation": "none",
+  "extractionNote": "290-400nm 구간이 원본에서 이미 정수 1nm 간격으로 존재하여 보간 없이 해당 행의 epsilon 값을 그대로 선택했다(data/raw/README.md, docs/phase4-chemical-model.md SS4 참조).",
+  "sigmaFormula": "sigma_c(lambda) = 1000 * ln(10) * epsilon(lambda) / N_A",
+  "avogadroConstantMol": 6.02214076e+23,
+  "generatedBy": "data/raw/luteolin.txt -> 111-point 290-400nm 1nm grid 추출 + epsilon->sigma_c 변환 (Phase 4A)",
+  "data": [
+    {
+      "wavelengthNm": 290,
+      "epsilon": 6701.4,
+      "sigmaCm2Molecule": 2.5623020711641914e-17
+    },
+    {
+      "wavelengthNm": 291,
+      "epsilon": 6754.6,
+      "sigmaCm2Molecule": 2.582643264077006e-17
+    },
+    {
+      "wavelengthNm": 292,
+      "epsilon": 6785.6,
+      "sigmaCm2Molecule": 2.594496214834473e-17
+    },
+    {
+      "wavelengthNm": 293,
+      "epsilon": 6808.3,
+      "sigmaCm2Molecule": 2.603175633614941e-17
+    },
+    {
+      "wavelengthNm": 294,
+      "epsilon": 6812.0,
+      "sigmaCm2Molecule": 2.604590340640832e-17
+    },
+    {
+      "wavelengthNm": 295,
+      "epsilon": 6808.6,
+      "sigmaCm2Molecule": 2.603290339590013e-17
+    },
+    {
+      "wavelengthNm": 296,
+      "epsilon": 6809.1,
+      "sigmaCm2Molecule": 2.603481516215134e-17
+    },
+    {
+      "wavelengthNm": 297,
+      "epsilon": 6802.8,
+      "sigmaCm2Molecule": 2.6010726907386162e-17
+    },
+    {
+      "wavelengthNm": 298,
+      "epsilon": 6808.3,
+      "sigmaCm2Molecule": 2.603175633614941e-17
+    },
+    {
+      "wavelengthNm": 299,
+      "epsilon": 6825.9,
+      "sigmaCm2Molecule": 2.6099050508191803e-17
+    },
+    {
+      "wavelengthNm": 300,
+      "epsilon": 6855.4,
+      "sigmaCm2Molecule": 2.621184471701286e-17
+    },
+    {
+      "wavelengthNm": 301,
+      "epsilon": 6894.6,
+      "sigmaCm2Molecule": 2.6361727191107287e-17
+    },
+    {
+      "wavelengthNm": 302,
+      "epsilon": 6939.7,
+      "sigmaCm2Molecule": 2.6534168506965915e-17
+    },
+    {
+      "wavelengthNm": 303,
+      "epsilon": 6992.6,
+      "sigmaCm2Molecule": 2.6736433376343342e-17
+    },
+    {
+      "wavelengthNm": 304,
+      "epsilon": 7057.2,
+      "sigmaCm2Molecule": 2.6983433575998942e-17
+    },
+    {
+      "wavelengthNm": 305,
+      "epsilon": 7126.8,
+      "sigmaCm2Molecule": 2.7249551438166594e-17
+    },
+    {
+      "wavelengthNm": 306,
+      "epsilon": 7201.2,
+      "sigmaCm2Molecule": 2.75340222563458e-17
+    },
+    {
+      "wavelengthNm": 307,
+      "epsilon": 7280.8,
+      "sigmaCm2Molecule": 2.783837544353754e-17
+    },
+    {
+      "wavelengthNm": 308,
+      "epsilon": 7374.0,
+      "sigmaCm2Molecule": 2.819472867276203e-17
+    },
+    {
+      "wavelengthNm": 309,
+      "epsilon": 7470.8,
+      "sigmaCm2Molecule": 2.85648466189952e-17
+    },
+    {
+      "wavelengthNm": 310,
+      "epsilon": 7580.9,
+      "sigmaCm2Molecule": 2.89858175475104e-17
+    },
+    {
+      "wavelengthNm": 311,
+      "epsilon": 7707.8,
+      "sigmaCm2Molecule": 2.947102382206607e-17
+    },
+    {
+      "wavelengthNm": 312,
+      "epsilon": 7835.9,
+      "sigmaCm2Molecule": 2.996081833562462e-17
+    },
+    {
+      "wavelengthNm": 313,
+      "epsilon": 7982.5,
+      "sigmaCm2Molecule": 3.052134820047775e-17
+    },
+    {
+      "wavelengthNm": 314,
+      "epsilon": 8141.6,
+      "sigmaCm2Molecule": 3.1129672221610984e-17
+    },
+    {
+      "wavelengthNm": 315,
+      "epsilon": 8317.2,
+      "sigmaCm2Molecule": 3.1801084529033956e-17
+    },
+    {
+      "wavelengthNm": 316,
+      "epsilon": 8508.7,
+      "sigmaCm2Molecule": 3.253329100324523e-17
+    },
+    {
+      "wavelengthNm": 317,
+      "epsilon": 8711.4,
+      "sigmaCm2Molecule": 3.330832104148347e-17
+    },
+    {
+      "wavelengthNm": 318,
+      "epsilon": 8934.9,
+      "sigmaCm2Molecule": 3.416288055577183e-17
+    },
+    {
+      "wavelengthNm": 319,
+      "epsilon": 9171.4,
+      "sigmaCm2Molecule": 3.50671459925915e-17
+    },
+    {
+      "wavelengthNm": 320,
+      "epsilon": 9418.4,
+      "sigmaCm2Molecule": 3.601155852068645e-17
+    },
+    {
+      "wavelengthNm": 321,
+      "epsilon": 9675.4,
+      "sigmaCm2Molecule": 3.69942063738055e-17
+    },
+    {
+      "wavelengthNm": 322,
+      "epsilon": 9943.7,
+      "sigmaCm2Molecule": 3.8020060144201765e-17
+    },
+    {
+      "wavelengthNm": 323,
+      "epsilon": 10222.0,
+      "sigmaCm2Molecule": 3.9084149239622117e-17
+    },
+    {
+      "wavelengthNm": 324,
+      "epsilon": 10500.0,
+      "sigmaCm2Molecule": 4.0147091275291746e-17
+    },
+    {
+      "wavelengthNm": 325,
+      "epsilon": 10783.0,
+      "sigmaCm2Molecule": 4.122915097347342e-17
+    },
+    {
+      "wavelengthNm": 326,
+      "epsilon": 11078.0,
+      "sigmaCm2Molecule": 4.2357093061683995e-17
+    },
+    {
+      "wavelengthNm": 327,
+      "epsilon": 11358.0,
+      "sigmaCm2Molecule": 4.3427682162358444e-17
+    },
+    {
+      "wavelengthNm": 328,
+      "epsilon": 11643.0,
+      "sigmaCm2Molecule": 4.451738892554493e-17
+    },
+    {
+      "wavelengthNm": 329,
+      "epsilon": 11929.0,
+      "sigmaCm2Molecule": 4.561091922123383e-17
+    },
+    {
+      "wavelengthNm": 330,
+      "epsilon": 12220.0,
+      "sigmaCm2Molecule": 4.6723567179434775e-17
+    },
+    {
+      "wavelengthNm": 331,
+      "epsilon": 12501.0,
+      "sigmaCm2Molecule": 4.779797981261163e-17
+    },
+    {
+      "wavelengthNm": 332,
+      "epsilon": 12766.0,
+      "sigmaCm2Molecule": 4.881121592574995e-17
+    },
+    {
+      "wavelengthNm": 333,
+      "epsilon": 13024.0,
+      "sigmaCm2Molecule": 4.97976873113714e-17
+    },
+    {
+      "wavelengthNm": 334,
+      "epsilon": 13283.0,
+      "sigmaCm2Molecule": 5.078798222949526e-17
+    },
+    {
+      "wavelengthNm": 335,
+      "epsilon": 13525.0,
+      "sigmaCm2Molecule": 5.171327709507818e-17
+    },
+    {
+      "wavelengthNm": 336,
+      "epsilon": 13760.0,
+      "sigmaCm2Molecule": 5.261180723314423e-17
+    },
+    {
+      "wavelengthNm": 337,
+      "epsilon": 13988.0,
+      "sigmaCm2Molecule": 5.3483572643693423e-17
+    },
+    {
+      "wavelengthNm": 338,
+      "epsilon": 14195.0,
+      "sigmaCm2Molecule": 5.427504387169203e-17
+    },
+    {
+      "wavelengthNm": 339,
+      "epsilon": 14390.0,
+      "sigmaCm2Molecule": 5.5020632709661734e-17
+    },
+    {
+      "wavelengthNm": 340,
+      "epsilon": 14576.0,
+      "sigmaCm2Molecule": 5.573180975510976e-17
+    },
+    {
+      "wavelengthNm": 341,
+      "epsilon": 14737.0,
+      "sigmaCm2Molecule": 5.634739848799757e-17
+    },
+    {
+      "wavelengthNm": 342,
+      "epsilon": 14890.0,
+      "sigmaCm2Molecule": 5.693239896086611e-17
+    },
+    {
+      "wavelengthNm": 343,
+      "epsilon": 15016.0,
+      "sigmaCm2Molecule": 5.741416405616961e-17
+    },
+    {
+      "wavelengthNm": 344,
+      "epsilon": 15132.0,
+      "sigmaCm2Molecule": 5.785769382644902e-17
+    },
+    {
+      "wavelengthNm": 345,
+      "epsilon": 15235.0,
+      "sigmaCm2Molecule": 5.825151767419711e-17
+    },
+    {
+      "wavelengthNm": 346,
+      "epsilon": 15300.0,
+      "sigmaCm2Molecule": 5.850004728685368e-17
+    },
+    {
+      "wavelengthNm": 347,
+      "epsilon": 15352.0,
+      "sigmaCm2Molecule": 5.869887097697894e-17
+    },
+    {
+      "wavelengthNm": 348,
+      "epsilon": 15391.0,
+      "sigmaCm2Molecule": 5.884798874457289e-17
+    },
+    {
+      "wavelengthNm": 349,
+      "epsilon": 15400.0,
+      "sigmaCm2Molecule": 5.888240053709456e-17
+    },
+    {
+      "wavelengthNm": 350,
+      "epsilon": 15389.0,
+      "sigmaCm2Molecule": 5.884034167956807e-17
+    },
+    {
+      "wavelengthNm": 351,
+      "epsilon": 15350.0,
+      "sigmaCm2Molecule": 5.869122391197412e-17
+    },
+    {
+      "wavelengthNm": 352,
+      "epsilon": 15296.0,
+      "sigmaCm2Molecule": 5.848475315684404e-17
+    },
+    {
+      "wavelengthNm": 353,
+      "epsilon": 15203.0,
+      "sigmaCm2Molecule": 5.812916463412004e-17
+    },
+    {
+      "wavelengthNm": 354,
+      "epsilon": 15092.0,
+      "sigmaCm2Molecule": 5.770475252635266e-17
+    },
+    {
+      "wavelengthNm": 355,
+      "epsilon": 14959.0,
+      "sigmaCm2Molecule": 5.71962227035323e-17
+    },
+    {
+      "wavelengthNm": 356,
+      "epsilon": 14795.0,
+      "sigmaCm2Molecule": 5.656916337313727e-17
+    },
+    {
+      "wavelengthNm": 357,
+      "epsilon": 14613.0,
+      "sigmaCm2Molecule": 5.587328045769888e-17
+    },
+    {
+      "wavelengthNm": 358,
+      "epsilon": 14396.0,
+      "sigmaCm2Molecule": 5.5043573904676186e-17
+    },
+    {
+      "wavelengthNm": 359,
+      "epsilon": 14168.0,
+      "sigmaCm2Molecule": 5.4171808494127e-17
+    },
+    {
+      "wavelengthNm": 360,
+      "epsilon": 13912.0,
+      "sigmaCm2Molecule": 5.319298417351036e-17
+    },
+    {
+      "wavelengthNm": 361,
+      "epsilon": 13632.0,
+      "sigmaCm2Molecule": 5.212239507283591e-17
+    },
+    {
+      "wavelengthNm": 362,
+      "epsilon": 13318.0,
+      "sigmaCm2Molecule": 5.092180586707957e-17
+    },
+    {
+      "wavelengthNm": 363,
+      "epsilon": 12984.0,
+      "sigmaCm2Molecule": 4.964474601127505e-17
+    },
+    {
+      "wavelengthNm": 364,
+      "epsilon": 12628.0,
+      "sigmaCm2Molecule": 4.8283568440417544e-17
+    },
+    {
+      "wavelengthNm": 365,
+      "epsilon": 12253.0,
+      "sigmaCm2Molecule": 4.684974375201426e-17
+    },
+    {
+      "wavelengthNm": 366,
+      "epsilon": 11861.0,
+      "sigmaCm2Molecule": 4.5350919011070035e-17
+    },
+    {
+      "wavelengthNm": 367,
+      "epsilon": 11444.0,
+      "sigmaCm2Molecule": 4.375650595756559e-17
+    },
+    {
+      "wavelengthNm": 368,
+      "epsilon": 11023.0,
+      "sigmaCm2Molecule": 4.2146798774051514e-17
+    },
+    {
+      "wavelengthNm": 369,
+      "epsilon": 10592.0,
+      "sigmaCm2Molecule": 4.049885626551335e-17
+    },
+    {
+      "wavelengthNm": 370,
+      "epsilon": 10140.0,
+      "sigmaCm2Molecule": 3.87706195744246e-17
+    },
+    {
+      "wavelengthNm": 371,
+      "epsilon": 9682.7,
+      "sigmaCm2Molecule": 3.7022118161073083e-17
+    },
+    {
+      "wavelengthNm": 372,
+      "epsilon": 9237.0,
+      "sigmaCm2Molecule": 3.5317969724749515e-17
+    },
+    {
+      "wavelengthNm": 373,
+      "epsilon": 8769.4,
+      "sigmaCm2Molecule": 3.353008592662318e-17
+    },
+    {
+      "wavelengthNm": 374,
+      "epsilon": 8314.6,
+      "sigmaCm2Molecule": 3.1791143344527693e-17
+    },
+    {
+      "wavelengthNm": 375,
+      "epsilon": 7863.0,
+      "sigmaCm2Molecule": 3.0064436066439905e-17
+    },
+    {
+      "wavelengthNm": 376,
+      "epsilon": 7404.7,
+      "sigmaCm2Molecule": 2.8312111120585976e-17
+    },
+    {
+      "wavelengthNm": 377,
+      "epsilon": 6944.6,
+      "sigmaCm2Molecule": 2.655290381622772e-17
+    },
+    {
+      "wavelengthNm": 378,
+      "epsilon": 6509.9,
+      "sigmaCm2Molecule": 2.489081423743064e-17
+    },
+    {
+      "wavelengthNm": 379,
+      "epsilon": 6076.7,
+      "sigmaCm2Molecule": 2.3234459957387175e-17
+    },
+    {
+      "wavelengthNm": 380,
+      "epsilon": 5654.2,
+      "sigmaCm2Molecule": 2.1619017475119483e-17
+    },
+    {
+      "wavelengthNm": 381,
+      "epsilon": 5234.9,
+      "sigmaCm2Molecule": 2.00158102968595e-17
+    },
+    {
+      "wavelengthNm": 382,
+      "epsilon": 4837.3,
+      "sigmaCm2Molecule": 1.8495573773901786e-17
+    },
+    {
+      "wavelengthNm": 383,
+      "epsilon": 4455.1,
+      "sigmaCm2Molecule": 1.703421965148117e-17
+    },
+    {
+      "wavelengthNm": 384,
+      "epsilon": 4086.4,
+      "sigmaCm2Molecule": 1.5624483217843066e-17
+    },
+    {
+      "wavelengthNm": 385,
+      "epsilon": 3736.5,
+      "sigmaCm2Molecule": 1.4286629195250247e-17
+    },
+    {
+      "wavelengthNm": 386,
+      "epsilon": 3401.7,
+      "sigmaCm2Molecule": 1.3006510513443803e-17
+    },
+    {
+      "wavelengthNm": 387,
+      "epsilon": 3081.8,
+      "sigmaCm2Molecule": 1.1783362465923248e-17
+    },
+    {
+      "wavelengthNm": 388,
+      "epsilon": 2785.6,
+      "sigmaCm2Molecule": 1.065083213870978e-17
+    },
+    {
+      "wavelengthNm": 389,
+      "epsilon": 2509.8,
+      "sigmaCm2Molecule": 9.59630187454545e-18
+    },
+    {
+      "wavelengthNm": 390,
+      "epsilon": 2251.7,
+      "sigmaCm2Molecule": 8.609448135673754e-18
+    },
+    {
+      "wavelengthNm": 391,
+      "epsilon": 2020.9,
+      "sigmaCm2Molecule": 7.726976834117818e-18
+    },
+    {
+      "wavelengthNm": 392,
+      "epsilon": 1800.5,
+      "sigmaCm2Molecule": 6.884270270586932e-18
+    },
+    {
+      "wavelengthNm": 393,
+      "epsilon": 1601.9,
+      "sigmaCm2Molecule": 6.124916715608558e-18
+    },
+    {
+      "wavelengthNm": 394,
+      "epsilon": 1423.5,
+      "sigmaCm2Molecule": 5.4427985171788375e-18
+    },
+    {
+      "wavelengthNm": 395,
+      "epsilon": 1263.2,
+      "sigmaCm2Molecule": 4.829886257042718e-18
+    },
+    {
+      "wavelengthNm": 396,
+      "epsilon": 1112.3,
+      "sigmaCm2Molecule": 4.252915202429239e-18
+    },
+    {
+      "wavelengthNm": 397,
+      "epsilon": 982.76,
+      "sigmaCm2Molecule": 3.757614802067211e-18
+    },
+    {
+      "wavelengthNm": 398,
+      "epsilon": 861.26,
+      "sigmaCm2Molecule": 3.2930556030245493e-18
+    },
+    {
+      "wavelengthNm": 399,
+      "epsilon": 762.46,
+      "sigmaCm2Molecule": 2.915290591786566e-18
+    },
+    {
+      "wavelengthNm": 400,
+      "epsilon": 677.68,
+      "sigmaCm2Molecule": 2.5911315062323533e-18
+    }
+  ]
+}

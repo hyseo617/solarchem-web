@@ -1,342 +1,625 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Phase 10B — GitHub Pages &rarr; localhost:8090 Live Validation</title>
-<style>
-  body { font-family: -apple-system, "Malgun Gothic", sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
-  h1 { font-size: 1.3rem; }
-  h2 { font-size: 1.05rem; margin-top: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; }
-  section { margin-bottom: 1.5rem; }
-  button { padding: 0.5rem 1rem; cursor: pointer; font-size: 0.95rem; }
-  table { border-collapse: collapse; width: 100%; }
-  td, th { text-align: left; padding: 0.25rem 0.5rem; border-bottom: 1px solid #eee; font-size: 0.92rem; }
-  th { width: 46%; color: #555; font-weight: normal; }
-  .badge { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 3px; font-size: 0.85rem; font-weight: bold; }
-  .badge-PASS { background: #dafbe1; color: #1a7f37; }
-  .badge-WARN { background: #fff5cc; color: #9a6700; }
-  .badge-FAIL { background: #ffebe9; color: #b42318; }
-  .badge-INFO { background: #eaf0fe; color: #2b4fb0; }
-  .env-box { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px; padding: 0.6rem 0.8rem; font-size: 0.88rem; white-space: pre-wrap; }
-  .diag-box { background: #ffebe9; border: 1px solid #ffc1bc; padding: 0.7rem 0.9rem; border-radius: 4px; margin-top: 0.6rem; font-size: 0.9rem; }
-  .diag-box h3 { margin: 0.9rem 0 0.3rem 0; font-size: 0.92rem; }
-  .diag-box h3:first-child { margin-top: 0; }
-  .diag-box ul { margin: 0.2rem 0 0.6rem 1.1rem; padding: 0; }
-  .hint { color: #777; font-size: 0.85rem; }
-  pre.raw { background: #f6f8fa; padding: 0.6rem; border-radius: 4px; font-size: 0.78rem; overflow-x: auto; max-height: 240px; }
-  details summary { cursor: pointer; color: #555; font-size: 0.85rem; }
-  .readonly-note { background: #eaf0fe; border: 1px solid #c6d6fb; border-radius: 4px; padding: 0.6rem 0.8rem; font-size: 0.88rem; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOLARCHEM</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
 
-<h1>Phase 10B — GitHub Pages &rarr; localhost:8090 Live Validation</h1>
-<p class="hint">
-  이 페이지는 <strong>실제 HTTPS로 호스팅된 정적 사이트</strong>에서 이 페이지를 보는 사용자
-  자신의 로컬 Stellarium 26.2 Remote Control API(<code>http://localhost:8090</code>)에 연결할 수
-  있는지를 실기기로 검증하기 위한 최소 배포 아티팩트입니다. Solarchem 프로덕션 UI, 과학 계산,
-  Electron 어느 것도 포함하지 않습니다.
-</p>
-<p class="readonly-note">
-  <strong>읽기 전용(read-only)</strong>: 이 페이지는 <code>checkConnection</code> /
-  <code>getCurrentLocation</code> / <code>getCurrentTime</code> / <code>getSunInfo</code>만
-  호출합니다 (전부 <code>js/stellarium-api.js</code>의 GET 기반 함수, Solarchem 프로덕션 코드가
-  실제로 쓰는 것과 동일한 API 경로 — 이 파일은 원본과 byte-for-byte 동일한 사본입니다).
-  <code>setLocation</code>/<code>setDateTime</code> 등 Stellarium의 위치·고도·시간대·날짜/시각을
-  바꾸는 함수는 이 페이지 어디에서도 호출하지 않습니다.
-</p>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <span class="site-header__brand text-en" lang="en">Solarchem</span>
+      <nav class="site-header__nav" aria-label="Page sections">
+        <ol>
+          <li><a href="#experiment" class="text-en" lang="en" data-rail-link="experiment">Experiment</a></li>
+          <li><a href="#solar-spectrum" class="text-en" lang="en" data-rail-link="solar-spectrum">Solar Spectrum</a></li>
+          <li><a href="#molecular-response" class="text-en" lang="en" data-rail-link="molecular-response">Molecular Response</a></li>
+          <li><a href="#results" class="text-en" lang="en" data-rail-link="results">Results</a></li>
+          <li><a href="#method" class="text-en" lang="en" data-rail-link="method">Method</a></li>
+        </ol>
+      </nav>
+    </div>
+  </header>
 
-<section>
-  <h2>0. Page environment</h2>
-  <div class="env-box" id="env-box">확인 중...</div>
-</section>
+  <div class="site-intro">
+    <h1 class="site-intro__title text-ko" lang="ko">Stellarium 기반 태양 UV 스펙트럼과 분자 광흡수 분석</h1>
+    <p class="site-intro__statement text-ko" lang="ko">
+      장소와 시간에 따른 태양 천문조건을 이용해 290&ndash;400&nbsp;nm direct-beam photon flux와 분자별 photon absorption response를 계산합니다.
+    </p>
+  </div>
+  <hr class="hairline">
 
-<section>
-  <h2>1. Local Network Access permission (best-effort, read-only query)</h2>
-  <p class="hint">
-    Chrome 142+는 공개 origin에서 loopback/사설망 주소로 나가는 요청에 대해 "Local Network Access"
-    권한 프롬프트를 요구합니다. 이 섹션은 <code>navigator.permissions.query</code>로 현재 권한
-    상태를 조회만 합니다 — 권한을 요청하거나 트리거하지 않습니다.
-  </p>
-  <div id="lna-permission-status">확인 중...</div>
-</section>
+  <main id="main-content">
 
-<section>
-  <h2>2. Run checks</h2>
-  <button id="btn-run">Run checks (read-only)</button>
-  <p class="hint">
-    버튼을 누르면 아래 항목을 순서대로 확인합니다. 각 항목은 실패해도 다음 항목을 계속
-    시도합니다(첫 실패에서 멈추지 않음).
-  </p>
-</section>
+    <!-- ============================================================
+         01 / EXPERIMENT
+         ============================================================ -->
+    <section id="experiment" class="section" aria-labelledby="experiment-title">
+      <header class="section__head">
+        <span class="section__index" aria-hidden="true">01</span>
+        <h2 id="experiment-title" class="section__title text-en" lang="en">Experiment</h2>
+      </header>
 
-<section>
-  <h2>3. Results</h2>
-  <table>
-    <tr><th>reachability (raw fetch, <code>/api/main/status</code>)</th><td id="r-reachability">—</td></tr>
-    <tr><th><code>checkConnection()</code></th><td id="r-connection">—</td></tr>
-    <tr><th>observer latitude/longitude</th><td id="r-location">—</td></tr>
-    <tr><th>observer elevation</th><td id="r-elevation">—</td></tr>
-    <tr><th>date/time (UTC, local, Julian day)</th><td id="r-time">—</td></tr>
-    <tr><th>Sun altitude</th><td id="r-sun-altitude">—</td></tr>
-    <tr><th>Sun azimuth</th><td id="r-sun-azimuth">—</td></tr>
-    <tr><th>Earth&ndash;Sun distance</th><td id="r-sun-distance">—</td></tr>
-  </table>
+      <div class="experiment-grid">
+        <div class="field-group" id="location-input">
+          <h3 class="field-label text-en" lang="en">Location</h3>
+          <div class="field-row">
+            <label class="field-input-wrap text-en" lang="en">
+              <span class="field-input-label">Latitude</span>
+              <input type="text" class="field-input" name="latitude" value="37.4565&deg; N" inputmode="decimal" readonly data-frozen-field="latitude">
+            </label>
+            <label class="field-input-wrap text-en" lang="en">
+              <span class="field-input-label">Longitude</span>
+              <input type="text" class="field-input" name="longitude" value="126.7051&deg; E" inputmode="decimal" readonly data-frozen-field="longitude">
+            </label>
+            <label class="field-input-wrap text-en" lang="en">
+              <span class="field-input-label">Site</span>
+              <input type="text" class="field-input" name="site" value="Incheon, KR" readonly>
+            </label>
+            <label class="field-input-wrap text-en" lang="en">
+              <span class="field-input-label">Elevation</span>
+              <input type="text" class="field-input" name="elevation" value="43 m" readonly data-frozen-field="elevation">
+            </label>
+          </div>
+        </div>
 
-  <div id="diagnostics"></div>
+        <div class="field-group" id="time-input">
+          <h3 class="field-label text-en" lang="en">Date / Time</h3>
+          <div class="field-row">
+            <label class="field-input-wrap text-en" lang="en">
+              <span class="field-input-label">Date</span>
+              <input type="date" class="field-input" name="obs-date" readonly data-frozen-field="date">
+            </label>
+            <label class="field-input-wrap text-en" lang="en">
+              <span class="field-input-label">Local time</span>
+              <input type="time" class="field-input" name="obs-time" step="1" readonly data-frozen-field="time">
+            </label>
+            <label class="field-input-wrap text-en" lang="en">
+              <span class="field-input-label">Timezone</span>
+              <input type="text" class="field-input" name="obs-timezone" value="Asia/Seoul (UTC+09:00)" readonly data-frozen-field="timezone">
+            </label>
+            <label class="field-input-wrap text-en" lang="en">
+              <span class="field-input-label">UTC</span>
+              <input type="text" class="field-input" name="obs-utc" value="2026-08-12 21:43:48 UTC" readonly data-frozen-field="utc">
+            </label>
+          </div>
+        </div>
 
-  <details>
-    <summary>raw responses (debug)</summary>
-    <pre class="raw" id="raw-output">(아직 없음)</pre>
-  </details>
-</section>
+        <div class="field-group" id="compound-select">
+          <h3 class="field-label text-en" lang="en">Compound</h3>
+          <div class="option-list" role="group" aria-label="Compound selection">
+            <button type="button" class="option-item text-en" lang="en" aria-pressed="true">Benzophenone</button>
+            <button type="button" class="option-item text-en" lang="en" aria-pressed="false">Luteolin</button>
+            <button type="button" class="option-item text-en" lang="en" aria-pressed="false">Quercetin</button>
+          </div>
+        </div>
+      </div>
 
-<script src="js/stellarium-api.js"></script>
-<script>
-"use strict";
+      <div class="altitude-selector" id="altitude-select">
+        <h3 class="field-label text-en" lang="en">Solar Altitude</h3>
+        <ol class="altitude-index" role="group" aria-label="Solar altitude in degrees">
+          <li><button type="button" class="altitude-option" data-altitude="10" data-condition-id="ALT010" aria-pressed="false">10</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="15" data-condition-id="ALT015" aria-pressed="false">15</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="20" data-condition-id="ALT020" aria-pressed="false">20</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="25" data-condition-id="ALT025" aria-pressed="false">25</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="30" data-condition-id="ALT030" aria-pressed="false">30</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="35" data-condition-id="ALT035" aria-pressed="false">35</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="40" data-condition-id="ALT040" aria-pressed="false">40</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="45" data-condition-id="ALT045" aria-pressed="false">45</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="50" data-condition-id="ALT050" aria-pressed="false">50</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="55" data-condition-id="ALT055" aria-pressed="false">55</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="60" data-condition-id="ALT060" aria-pressed="false">60</button></li>
+          <li><button type="button" class="altitude-option" data-altitude="65" data-condition-id="ALT065" aria-pressed="false">65</button></li>
+          <li><button type="button" class="altitude-option altitude-option--max text-en" lang="en" data-altitude="max" data-condition-id="ALTMAX" aria-pressed="false">MAX</button></li>
+        </ol>
+      </div>
 
-const el = (id) => document.getElementById(id);
-const rawLog = {};
+      <div class="ephemeris-shell" id="ephemeris">
+        <h3 class="field-label text-ko" lang="ko">천체 역표</h3>
+        <dl class="ephemeris-fields">
+          <div class="ephemeris-field">
+            <dt class="text-ko" lang="ko">조건</dt>
+            <dd class="data-slot text-en" lang="en" data-ephemeris-field="condition">DATA SLOT</dd>
+          </div>
+          <div class="ephemeris-field">
+            <dt class="text-ko" lang="ko">현지 시각</dt>
+            <dd class="data-slot text-en" lang="en" data-ephemeris-field="local-time">DATA SLOT</dd>
+          </div>
+          <div class="ephemeris-field">
+            <dt class="text-en" lang="en">UTC</dt>
+            <dd class="data-slot text-en" lang="en" data-ephemeris-field="utc">DATA SLOT</dd>
+          </div>
+          <div class="ephemeris-field">
+            <dt class="text-ko" lang="ko">태양 고도</dt>
+            <dd class="data-slot text-en" lang="en" data-ephemeris-field="altitude">DATA SLOT</dd>
+          </div>
+          <div class="ephemeris-field">
+            <dt class="text-ko" lang="ko">태양 방위각</dt>
+            <dd class="data-slot text-en" lang="en" data-ephemeris-field="azimuth">DATA SLOT</dd>
+          </div>
+          <div class="ephemeris-field">
+            <dt class="text-ko" lang="ko">지구&ndash;태양 거리</dt>
+            <dd class="data-slot text-en" lang="en" data-ephemeris-field="distance">DATA SLOT</dd>
+          </div>
+        </dl>
+        <div class="ephemeris-footer">
+          <p class="ephemeris-sources text-ko" lang="ko">천문 모델 &middot; Stellarium 26.2</p>
+          <button type="button" class="control-link text-en" lang="en" data-drawer-trigger="ephemeris-drawer" aria-expanded="false" aria-controls="ephemeris-drawer">View full ephemeris</button>
+        </div>
+      </div>
 
-function makeBadge(status, text) {
-  const span = document.createElement('span');
-  span.className = `badge badge-${status}`;
-  span.textContent = text || status;
-  return span;
-}
+      <div class="live-status" id="live-status" data-live-status="canonical">
+        <div class="live-status__row">
+          <span class="live-status__label text-en" lang="en">Source</span>
+          <span class="live-status__value text-en" lang="en" data-live-source>Reference data</span>
+        </div>
+        <button type="button" class="live-status__connect control-link text-en" lang="en" data-live-connect>Connect Stellarium</button>
+        <button type="button" class="live-status__return control-link text-en" lang="en" data-live-return hidden>Use reference data</button>
+        <span class="live-status__message text-en" lang="en" data-live-message aria-live="polite"></span>
+      </div>
+    </section>
 
-function renderCell(container, status, detail) {
-  container.textContent = '';
-  container.appendChild(makeBadge(status));
-  if (detail) {
-    const hint = document.createElement('span');
-    hint.className = 'hint';
-    hint.textContent = ' ' + detail;
-    container.appendChild(hint);
-  }
-}
+    <!-- ============================================================
+         02 / SOLAR SPECTRUM
+         ============================================================ -->
+    <section id="solar-spectrum" class="section" aria-labelledby="solar-spectrum-title">
+      <header class="section__head">
+        <span class="section__index" aria-hidden="true">02</span>
+        <h2 id="solar-spectrum-title" class="section__title text-en" lang="en">Solar Spectrum</h2>
+      </header>
 
-function updateRaw() {
-  el('raw-output').textContent = JSON.stringify(rawLog, null, 2);
-}
+      <p class="section__statement text-ko" lang="ko">
+        290&ndash;400&nbsp;nm 파장 범위에서 모델링한 맑은 하늘 직달 광자 선속(actinic photon flux).
+      </p>
 
-// ---------------------------------------------------------------------------
-// 0. 페이지 환경 표시 — HTTPS로 실제 로드되었는지, 어떤 origin인지 스스로 보여준다.
-// GitHub Pages project site는 도메인 루트가 아니라 /<repo>/ 하위 경로에서 서빙되므로
-// 이 페이지의 모든 asset 참조(js/stellarium-api.js)는 상대경로로만 작성했다 —
-// root-absolute 경로(/js/...)를 쓰면 project-path 배포에서 404가 난다.
-// ---------------------------------------------------------------------------
-(function renderEnv() {
-  const box = el('env-box');
-  const lines = [];
-  lines.push(`origin: ${location.origin}`);
-  lines.push(`pathname: ${location.pathname}`);
-  lines.push(`protocol: ${location.protocol}`);
+      <div class="chart-scroll">
+        <div class="chart-area" id="chart-solar-spectrum" role="img" aria-label="Solar spectrum chart placeholder">
+          <span class="chart-area__label text-en" lang="en">DATA SLOT</span>
+          <span class="chart-area__sublabel text-en" lang="en">Reference Data</span>
+        </div>
+      </div>
+      <p class="chart-context text-en" lang="en">
+        <span class="data-slot" data-chart-context="solar-spectrum">DATA SLOT</span>
+        <span class="chart-context__provenance" data-chart-provenance="solar-spectrum">Reference dataset</span>
+      </p>
+    </section>
 
-  if (location.protocol === 'https:') {
-    lines.push('[PASS] HTTPS로 로드됨 — 프로덕션 GitHub Pages와 동일한 mixed-content/Local Network Access 조건.');
-  } else if (location.protocol === 'file:') {
-    lines.push('[WARN] file:// 로 열려 있음 — Origin: null로 취급되어 Stellarium CORS(cors_origin)가 이를 명시적으로 허용하지 않는 한 항상 실패한다. 이 결과는 실제 GitHub Pages 배포 결과를 대표하지 않는다.');
-  } else {
-    lines.push('[WARN] HTTPS가 아님 — 실제 GitHub Pages 배포(HTTPS) 전 로컬 미리보기 단계로 판단됨. 이 결과만으로 프로덕션 동작을 단정할 수 없다.');
-  }
+    <!-- ============================================================
+         03 / MOLECULAR RESPONSE
+         ============================================================ -->
+    <section id="molecular-response" class="section" aria-labelledby="molecular-response-title">
+      <header class="section__head">
+        <span class="section__index" aria-hidden="true">03</span>
+        <h2 id="molecular-response-title" class="section__title text-en" lang="en">Molecular Response</h2>
+      </header>
 
-  box.textContent = lines.join('\n');
-})();
+      <p class="section__statement text-ko" lang="ko">
+        태양 고도에 따른 정규화된 광자 흡수율, R<sub>abs</sub>.
+      </p>
 
-// ---------------------------------------------------------------------------
-// 1. Local Network Access 권한 상태 조회 (best-effort, read-only)
-// ---------------------------------------------------------------------------
-(async function checkLnaPermission() {
-  const container = el('lna-permission-status');
-  if (!navigator.permissions || !navigator.permissions.query) {
-    renderCell(container, 'INFO', 'navigator.permissions API를 지원하지 않는 브라우저입니다.');
-    return;
-  }
-  try {
-    const result = await navigator.permissions.query({ name: 'local-network-access' });
-    const statusMap = { granted: 'PASS', denied: 'FAIL', prompt: 'WARN' };
-    const badgeStatus = statusMap[result.state] || 'INFO';
-    const detailMap = {
-      granted: '이미 허용됨 — 이 origin은 loopback/사설망 요청이 이미 승인되어 있습니다.',
-      denied: '거부됨 — 브라우저 사이트 설정(로컬 네트워크)에서 수동으로 재허용해야 fetch가 성공합니다.',
-      prompt: '아직 결정되지 않음 — 아래 "Run checks"를 누르면 브라우저가 권한 프롬프트를 띄울 수 있습니다.',
-    };
-    renderCell(container, badgeStatus, `state: ${result.state}. ${detailMap[result.state] || ''}`);
-  } catch (err) {
-    renderCell(container, 'INFO', `이 브라우저는 "local-network-access" permission 이름을 인식하지 못합니다 (${err.message}).`);
-  }
-})();
+      <div class="option-list" role="group" aria-label="Compound selection" id="molecular-response-compounds">
+        <button type="button" class="option-item text-en" lang="en" aria-pressed="false" data-compound-id="benzophenone">Benzophenone</button>
+        <button type="button" class="option-item text-en" lang="en" aria-pressed="false" data-compound-id="luteolin">Luteolin</button>
+        <button type="button" class="option-item text-en" lang="en" aria-pressed="false" data-compound-id="quercetin">Quercetin</button>
+      </div>
 
-// ---------------------------------------------------------------------------
-// raw fetch reachability — stellarium-api.js를 거치지 않은 최소 fetch.
-// targetAddressSpace: 'local'은 loopback 호스트명이 아닌 주소에 대비한 선택적
-// 힌트이며, 이를 모르는 브라우저는 RequestInit의 알 수 없는 필드로 조용히
-// 무시한다(throw하지 않음).
-// ---------------------------------------------------------------------------
-async function checkReachability() {
-  const container = el('r-reachability');
-  const start = performance.now();
-  try {
-    const response = await fetch('http://localhost:8090/api/main/status', {
-      method: 'GET',
-      targetAddressSpace: 'local',
-    });
-    const elapsedMs = Math.round(performance.now() - start);
-    if (!response.ok) {
-      renderCell(container, 'FAIL', `HTTP ${response.status} (${elapsedMs}ms)`);
-      return false;
-    }
-    renderCell(container, 'PASS', `HTTP ${response.status}, ${elapsedMs}ms`);
-    rawLog.reachability = { status: response.status, elapsedMs };
-    return true;
-  } catch (err) {
-    const elapsedMs = Math.round(performance.now() - start);
-    renderCell(container, 'FAIL', `${err.name}: ${err.message} (${elapsedMs}ms)`);
-    rawLog.reachability = { error: String(err), elapsedMs };
-    return false;
-  }
-}
+      <div class="live-molecular-status" id="live-molecular-status" data-live-molecular hidden>
+        <p class="live-molecular-status__line text-ko" lang="ko" data-live-molecular-altitude>&mdash;</p>
+        <dl class="live-molecular-status__values">
+          <div class="live-molecular-status__item">
+            <dt class="text-en" lang="en">Benzophenone k<sub>abs,dir</sub></dt>
+            <dd class="text-en" lang="en" data-live-kabs="benzophenone">&mdash;</dd>
+          </div>
+          <div class="live-molecular-status__item">
+            <dt class="text-en" lang="en">Luteolin k<sub>abs,dir</sub></dt>
+            <dd class="text-en" lang="en" data-live-kabs="luteolin">&mdash;</dd>
+          </div>
+          <div class="live-molecular-status__item">
+            <dt class="text-en" lang="en">Quercetin k<sub>abs,dir</sub></dt>
+            <dd class="text-en" lang="en" data-live-kabs="quercetin">&mdash;</dd>
+          </div>
+        </dl>
+      </div>
 
-async function checkConnectionStep() {
-  const container = el('r-connection');
-  const result = await checkConnection();
-  rawLog.checkConnection = result.connected ? result.raw : { error: result.error && result.error.message };
-  if (result.connected) {
-    renderCell(container, 'PASS', 'connected');
-  } else {
-    renderCell(container, 'FAIL', `${result.error.kind}: ${result.error.message}`);
-  }
-  return result.connected;
-}
+      <div class="chart-scroll">
+        <div class="chart-area" id="chart-molecular-response" role="img" aria-label="Molecular response chart placeholder">
+          <span class="chart-area__label text-en" lang="en">DATA SLOT</span>
+          <span class="chart-area__sublabel text-en" lang="en">Reference Data</span>
+        </div>
+      </div>
+      <p class="chart-context text-en" lang="en">Reference analysis</p>
+    </section>
 
-async function checkLocationStep() {
-  const latContainer = el('r-location');
-  const elevContainer = el('r-elevation');
-  try {
-    const loc = await getCurrentLocation();
-    renderCell(latContainer, 'PASS', `${loc.latitude}, ${loc.longitude} (${loc.name || '—'})`);
-    renderCell(elevContainer, 'PASS', `${loc.altitude} m`);
-    rawLog.location = loc.raw.location;
-  } catch (err) {
-    renderCell(latContainer, 'FAIL', `${err.kind || err.name}: ${err.message}`);
-    renderCell(elevContainer, 'FAIL', '(위와 동일한 오류)');
-    rawLog.location = { error: String(err) };
-  }
-}
+    <!-- ============================================================
+         04 / RESULTS
+         ============================================================ -->
+    <section id="results" class="section" aria-labelledby="results-title">
+      <header class="section__head">
+        <span class="section__index" aria-hidden="true">04</span>
+        <h2 id="results-title" class="section__title text-en" lang="en">Results</h2>
+      </header>
 
-async function checkTimeStep() {
-  const container = el('r-time');
-  try {
-    const time = await getCurrentTime();
-    renderCell(container, 'PASS', `${time.utcIso} / local ${time.localDisplay} (${time.timeZone}) / JD ${time.julianDay}`);
-    rawLog.time = time.raw.time;
-  } catch (err) {
-    renderCell(container, 'FAIL', `${err.kind || err.name}: ${err.message}`);
-    rawLog.time = { error: String(err) };
-  }
-}
+      <p class="section__statement text-ko" lang="ko">
+        맑은 하늘 조건에서 계산한 direct-beam 광자 흡수 결과.
+      </p>
 
-async function checkSunStep() {
-  const altContainer = el('r-sun-altitude');
-  const azContainer = el('r-sun-azimuth');
-  const distContainer = el('r-sun-distance');
-  try {
-    const sun = await getSunInfo();
-    renderCell(altContainer, 'PASS', `${sun.data.altitudeGeometricDeg.toFixed(3)}° (geometric)`);
-    renderCell(azContainer, 'PASS', `${sun.data.azimuthDeg.toFixed(3)}°`);
-    renderCell(distContainer, 'PASS', `${sun.data.distanceAu.toFixed(6)} AU (${sun.data.distanceKm.toFixed(0)} km)`);
-    rawLog.sun = sun.raw;
-  } catch (err) {
-    const msg = `${err.kind || err.name}: ${err.message}`;
-    renderCell(altContainer, 'FAIL', msg);
-    renderCell(azContainer, 'FAIL', '(위와 동일한 오류)');
-    renderCell(distContainer, 'FAIL', '(위와 동일한 오류)');
-    rawLog.sun = { error: String(err) };
-  }
-}
+      <hr class="hairline">
+      <p class="result-scope-note text-ko" lang="ko">
+        모델 범위: 맑은 하늘 direct-beam 광자 흡수 반응에 한정 &mdash; SPF, UVA-PF, 생물학적 유효성, 광분해 속도, 광안정성, 피부 보호, 분해 속도, 양자수율 거동은 다루지 않음.
+      </p>
 
-// ---------------------------------------------------------------------------
-// 진단 패널 — fetch()는 브라우저 보안상 실패 원인을 JS에 노출하지 않는다(전부
-// 동일한 "TypeError: Failed to fetch"). 그래서 원인을 스스로 단정하지 않고,
-// 요청된 6개 카테고리(Stellarium 미실행 / Remote Control 비활성 / CORS 실패 /
-// Local Network Access 거부 / mixed-content·보안 차단 / API 실패)로 나눠
-// 체크리스트만 제공하고, 실제 원인은 DevTools에서 확인하도록 안내한다.
-// ---------------------------------------------------------------------------
-function addDiagSection(container, title, items) {
-  const heading = document.createElement('h3');
-  heading.textContent = title;
-  container.appendChild(heading);
-  const list = document.createElement('ul');
-  items.forEach((text) => {
-    const li = document.createElement('li');
-    li.textContent = text;
-    list.appendChild(li);
-  });
-  container.appendChild(list);
-}
+      <ol class="result-list">
+        <li class="result-item" data-final-result="Fig.02">
+          <span class="result-item__id text-en" lang="en">Result 01 &middot; Fig.02</span>
+          <h3 class="result-item__statement text-ko" lang="ko">대표 조건별 상대 직달 광자 선속 스펙트럼</h3>
+          <figure class="result-figure">
+            <div class="result-figure__media result-figure__media--standard">
+              <a class="result-figure__link" href="reports/figures/phase7/phase7a_fig02_qdir_relative_representative.png" aria-label="Open full-resolution Fig.02 representative relative direct-beam photon flux spectra">
+                <img
+                  class="result-figure__image"
+                  src="reports/figures/phase7/phase7a_fig02_qdir_relative_representative.png"
+                  alt="Relative direct-beam photon flux spectra at representative solar altitudes"
+                  width="2400"
+                  height="1650"
+                  loading="lazy"
+                  decoding="async"
+                >
+              </a>
+            </div>
+            <figcaption class="result-item__caption text-ko" lang="ko">
+              290&ndash;400 nm의 직달 광자 선속을 각 파장에서 ALTMAX 값 대비 상대값으로 나타냈다. 로그 스케일 그래프에서 긴 파장보다 짧은 파장에서 저고도 억제가 더 강하게 나타난다.
+            </figcaption>
+          </figure>
+        </li>
+        <li class="result-item" data-final-result="Fig.04">
+          <span class="result-item__id text-en" lang="en">Result 02 &middot; Fig.04</span>
+          <h3 class="result-item__statement text-ko" lang="ko">기하학적 태양 고도에 따른 R<sub>abs</sub></h3>
+          <figure class="result-figure">
+            <div class="result-figure__media result-figure__media--standard">
+              <a class="result-figure__link" href="reports/figures/phase7/phase7b_fig04_rabs_vs_altitude.png" aria-label="Open full-resolution Fig.04 normalized molecular absorption response versus solar altitude">
+                <img
+                  class="result-figure__image"
+                  src="reports/figures/phase7/phase7b_fig04_rabs_vs_altitude.png"
+                  alt="Normalized molecular absorption response versus geometric solar altitude"
+                  width="2250"
+                  height="1650"
+                  loading="lazy"
+                  decoding="async"
+                >
+              </a>
+            </div>
+            <figcaption class="result-item__caption text-ko" lang="ko">
+              정규화된 직달 광자 흡수 반응 R<sub>abs</sub>(h)를 Benzophenone, Luteolin, Quercetin에 대해 13개 참고 고도 조건에 걸쳐 나타냈다. 정규화된 R<sub>abs</sub>에서 Quercetin &gt; Luteolin &gt; Benzophenone 순서(최댓값 제외)가 성립함을 확인한다.
+            </figcaption>
+          </figure>
+        </li>
+        <li class="result-item" data-final-result="Fig.08">
+          <span class="result-item__id text-en" lang="en">Result 03 &middot; Fig.08</span>
+          <h3 class="result-item__statement text-ko" lang="ko">ALT010과 ALTMAX의 파장별 기여율 비교</h3>
+          <figure class="result-figure">
+            <div class="result-figure__media result-figure__media--wide">
+              <a class="result-figure__link" href="reports/figures/phase7/phase7c_fig08_alt010_vs_altmax_fractional_contribution.png" aria-label="Open full-resolution Fig.08 ALT010 versus ALTMAX fractional spectral contribution comparison">
+                <img
+                  class="result-figure__image"
+                  src="reports/figures/phase7/phase7c_fig08_alt010_vs_altmax_fractional_contribution.png"
+                  alt="Fractional spectral contributions at ALT010 and ALTMAX for three compounds"
+                  width="4500"
+                  height="1500"
+                  loading="lazy"
+                  decoding="async"
+                >
+              </a>
+            </div>
+            <figcaption class="result-item__caption text-ko" lang="ko">
+              각 화합물에 대해 ALT010과 ALTMAX의 파장별 기여율 분포를 비교했다. 290&ndash;400 nm 직달 분석 구간 내에서 저고도일수록 기여가 더 긴 파장 쪽으로 재분배됨을 보여준다.
+            </figcaption>
+          </figure>
+        </li>
+        <li class="result-item" data-final-result="Fig.12">
+          <span class="result-item__id text-en" lang="en">Result 04 &middot; Fig.12</span>
+          <h3 class="result-item__statement text-ko" lang="ko">파장대별 R<sub>abs</sub>: UVB와 UVA</h3>
+          <figure class="result-figure">
+            <div class="result-figure__media result-figure__media--wide">
+              <a class="result-figure__link" href="reports/figures/phase7/phase7d_fig12_band_specific_rabs_vs_altitude.png" aria-label="Open full-resolution Fig.12 UVB and UVA band-specific normalized response versus solar altitude">
+                <img
+                  class="result-figure__image"
+                  src="reports/figures/phase7/phase7d_fig12_band_specific_rabs_vs_altitude.png"
+                  alt="UVB and UVA band-specific normalized response versus solar altitude"
+                  width="4500"
+                  height="1500"
+                  loading="lazy"
+                  decoding="async"
+                >
+              </a>
+            </div>
+            <figcaption class="result-item__caption text-ko" lang="ko">
+              이 분석은 계산상 UVB 290&ndash;314 nm, UVA 315&ndash;400 nm 구간을 사용한다. 세 화합물 모두 UVA 우세 흡수를 보이며, UVB 파장대 반응이 고도 변화에 더 민감함을 확인한다.
+            </figcaption>
+          </figure>
+        </li>
+      </ol>
 
-function renderDiagnostics(reachable, connectOk) {
-  const container = el('diagnostics');
-  container.textContent = '';
-  if (reachable && connectOk) {
-    return;
-  }
+      <div class="table-shell table-shell--results" data-final-table="table1">
+        <h3 class="table-shell__title text-en" lang="en">Table 1 &middot; Representative Conditions</h3>
+        <p class="table-shell__caption text-ko" lang="ko">
+          참고 데이터셋에서 선택한 고도별 주요 반응 요약.
+        </p>
+        <div class="table-scroll" tabindex="0" aria-label="Table 1 representative conditions">
+          <table class="editorial-table editorial-table--results" id="phase7g-table-1">
+            <thead>
+              <tr>
+                <th class="text-en" lang="en" scope="col">Condition</th>
+                <th class="text-en" lang="en" scope="col">Geometric Solar Altitude (deg)</th>
+                <th class="text-en" lang="en" scope="col">Integrated q<sub>dir</sub> 290&ndash;400 nm</th>
+                <th class="text-en" lang="en" scope="col">Benzophenone R<sub>abs</sub></th>
+                <th class="text-en" lang="en" scope="col">Luteolin R<sub>abs</sub></th>
+                <th class="text-en" lang="en" scope="col">Quercetin R<sub>abs</sub></th>
+              </tr>
+            </thead>
+            <tbody data-final-table-body="table1">
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-  const box = document.createElement('div');
-  box.className = 'diag-box';
+      <div class="table-shell table-shell--results" data-final-table="table2">
+        <h3 class="table-shell__title text-en" lang="en">Table 2 &middot; Spectral Position Summary</h3>
+        <p class="table-shell__caption text-ko" lang="ko">
+          참고 요약에서 선택한 가중평균 파장과 &lambda;<sub>50</sub>, 구간 내 최대 기여 파장.
+        </p>
+        <div class="table-scroll" tabindex="0" aria-label="Table 2 spectral position summary">
+          <table class="editorial-table editorial-table--results" id="phase7g-table-2">
+            <thead>
+              <tr>
+                <th class="text-en" lang="en" scope="col">Condition</th>
+                <th class="text-en" lang="en" scope="col">Compound</th>
+                <th class="text-en" lang="en" scope="col">Weighted Mean Wavelength (nm)</th>
+                <th class="text-en" lang="en" scope="col">&lambda;<sub>50</sub> (nm)</th>
+                <th class="text-en" lang="en" scope="col">Peak Wavelength within 290&ndash;400 nm</th>
+              </tr>
+            </thead>
+            <tbody data-final-table-body="table2">
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note text-ko" lang="ko" data-boundary-note hidden></p>
+      </div>
+    </section>
 
-  const intro = document.createElement('p');
-  intro.className = 'hint';
-  intro.textContent =
-    '브라우저 보안 정책상 fetch() 실패 원인은 JS에 노출되지 않습니다(전부 동일한 오류로 보입니다). ' +
-    '아래 카테고리를 순서대로 확인하고, 정확한 원인은 브라우저 DevTools의 Console/Network 탭에서 확인하세요.';
-  box.appendChild(intro);
+    <!-- ============================================================
+         05 / METHOD
+         ============================================================ -->
+    <section id="method" class="section" aria-labelledby="method-title">
+      <header class="section__head">
+        <span class="section__index" aria-hidden="true">05</span>
+        <h2 id="method-title" class="section__title text-en" lang="en">Method</h2>
+      </header>
 
-  addDiagSection(box, '1. Stellarium이 실행 중이 아님', [
-    'Stellarium 26.2 애플리케이션 자체가 켜져 있는지 확인',
-  ]);
-  addDiagSection(box, '2. Remote Control 플러그인이 비활성화됨', [
-    'F2 → Plugins → Remote Control → "Server enabled" 체크박스가 켜져 있는지 확인 (autostart=false가 기본값이므로 Stellarium을 켤 때마다 매번 다시 켜야 함)',
-  ]);
-  addDiagSection(box, '3. CORS 실패', [
-    `Stellarium Remote Control 설정의 "Enable CORS for the following origin"이 켜져 있고, origin 값이 지금 이 페이지의 origin(${location.origin})과 정확히 일치하는지 확인 (scheme+host만, 경로 없이. 와일드카드 미지원)`,
-  ]);
-  addDiagSection(box, '4. Local Network Access 권한 거부', [
-    '브라우저가 "로컬 네트워크의 기기를 찾고 연결"하는 권한 프롬프트를 띄웠는데 거부하지 않았는지 확인 (위 1번 섹션의 permission 상태 참고)',
-    '거부했다면 브라우저 주소창 왼쪽 사이트 정보 아이콘 → 사이트 설정에서 "로컬 네트워크"를 다시 허용으로 변경',
-  ]);
-  addDiagSection(box, '5. Mixed-content/보안 차단', [
-    'localhost/127.0.0.1은 표준상 "potentially trustworthy" origin이라 일반적으로 mixed-content로 차단되지 않지만, Stellarium이 실제로 그 정확한 호스트명으로 응답하는지, 사설 IP 등 다른 주소로 우회되지 않았는지 확인',
-    '브라우저 확장 프로그램(광고 차단기 등)이 요청을 가로채고 있지 않은지 확인 (Console에 확장 프로그램발 오류가 있는지)',
-  ]);
-  addDiagSection(box, '6. API 실패 (연결은 되었지만 응답 오류)', [
-    '이미 다른 프로그램이 8090 포트를 점유하고 있지 않은지 확인',
-    '위 표에서 개별 항목(location/time/sun)이 checkConnection은 PASS인데 개별적으로 FAIL이면, Stellarium 쪽 응답 형식 문제이므로 raw responses(debug)를 펼쳐서 실제 응답을 확인',
-  ]);
+      <div class="equation-block">
+        <span class="equation-block__id text-en" lang="en">Eq.01</span>
+        <p class="equation-block__formula text-en" lang="en">&sigma;<sub>c</sub>(&lambda;) = 1000&thinsp;&middot;&thinsp;ln(10)&thinsp;&middot;&thinsp;&epsilon;(&lambda;) / N<sub>A</sub></p>
+        <p class="equation-block__gloss text-ko" lang="ko">몰 흡광계수로부터 구한 분자 흡수 단면적</p>
+      </div>
 
-  container.appendChild(box);
-}
+      <hr class="hairline">
 
-el('btn-run').addEventListener('click', async () => {
-  el('btn-run').disabled = true;
-  el('btn-run').textContent = 'Running...';
-  for (const id of ['r-reachability', 'r-connection', 'r-location', 'r-elevation', 'r-time', 'r-sun-altitude', 'r-sun-azimuth', 'r-sun-distance']) {
-    renderCell(el(id), 'INFO', '실행 중...');
-  }
+      <div class="equation-block">
+        <span class="equation-block__id text-en" lang="en">Eq.02</span>
+        <p class="equation-block__formula text-en" lang="en">r<sub>abs</sub>(&lambda;,&nbsp;t) = &sigma;<sub>c</sub>(&lambda;)&thinsp;&middot;&thinsp;q<sub>dir</sub>(&lambda;,&nbsp;t)</p>
+        <p class="equation-block__gloss text-ko" lang="ko">파장 &lambda;, 시각 t에서의 스펙트럼별 광자 흡수율</p>
+      </div>
 
-  const reachable = await checkReachability();
-  const connectOk = await checkConnectionStep();
-  await checkLocationStep();
-  await checkTimeStep();
-  await checkSunStep();
-  renderDiagnostics(reachable, connectOk);
-  updateRaw();
+      <hr class="hairline">
 
-  el('btn-run').disabled = false;
-  el('btn-run').textContent = 'Run checks (read-only)';
-});
-</script>
+      <div class="equation-block">
+        <span class="equation-block__id text-en" lang="en">Eq.03</span>
+        <p class="equation-block__formula text-en" lang="en">k<sub>abs,dir</sub>(t) = &Sigma;<sub>&lambda;=290</sub><sup>400</sup> &sigma;<sub>c</sub>(&lambda;)&thinsp;&middot;&thinsp;q<sub>dir</sub>(&lambda;,&nbsp;t)&thinsp;&middot;&thinsp;&Delta;&lambda;</p>
+        <p class="equation-block__gloss text-ko" lang="ko">290&ndash;400&nbsp;nm에 걸쳐 적분한 총 직달 광자 흡수율</p>
+      </div>
+
+      <hr class="hairline">
+
+      <div class="equation-block">
+        <span class="equation-block__id text-en" lang="en">Eq.04</span>
+        <p class="equation-block__formula text-en" lang="en">R<sub>abs</sub>(h) = k<sub>abs,dir</sub>(h) / k<sub>abs,dir</sub>(h<sub>max</sub>)</p>
+        <p class="equation-block__gloss text-ko" lang="ko">해당 날짜의 최대 태양 고도 대비 정규화된 반응</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" aria-label="Site information">
+    <p class="text-ko" lang="ko">Solarchem &middot; 최종 분석 웹사이트 &middot; 천문 데이터 제공: Stellarium 26.2 / NASA JPL Horizons</p>
+  </footer>
+
+  <div class="drawer-backdrop" data-drawer-backdrop hidden></div>
+
+  <section class="ephemeris-drawer" id="ephemeris-drawer" role="dialog" aria-modal="true" aria-labelledby="ephemeris-drawer-title" aria-hidden="true">
+    <div class="ephemeris-drawer__inner">
+      <header class="ephemeris-drawer__head">
+        <div class="ephemeris-drawer__heading">
+          <h2 id="ephemeris-drawer-title" class="text-ko" lang="ko">천체 역표</h2>
+          <p class="ephemeris-drawer__meta text-ko" lang="ko">13개 조건 &middot; 인천 &middot; <span class="data-slot" data-ephemeris-meta="date">DATA SLOT</span></p>
+        </div>
+        <button type="button" class="ephemeris-drawer__close text-en" lang="en" data-drawer-close>Close</button>
+      </header>
+
+      <div class="ephemeris-drawer__body">
+        <div class="table-scroll">
+          <table class="editorial-table ephemeris-drawer__table">
+            <thead>
+              <tr>
+                <th class="text-ko" lang="ko" scope="col">조건</th>
+                <th class="text-ko" lang="ko" scope="col">현지 시각</th>
+                <th class="text-en" lang="en" scope="col">UTC</th>
+                <th scope="col"><span class="text-en" lang="en">Stellarium</span><br><span class="text-ko" lang="ko">기하학적 고도</span></th>
+                <th scope="col"><span class="text-en" lang="en">JPL Horizons</span><br><span class="text-ko" lang="ko">무굴절 고도</span></th>
+                <th class="text-ko" lang="ko" scope="col">태양 방위각</th>
+                <th class="text-ko" lang="ko" scope="col">지구&ndash;태양 거리</th>
+              </tr>
+            </thead>
+            <tbody id="ephemeris-drawer-tbody">
+              <tr data-ephemeris-row="ALT010" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT010</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT015" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT015</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT020" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT020</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT025" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT025</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT030" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT030</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT035" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT035</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT040" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT040</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT045" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT045</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT050" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT050</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT055" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT055</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT060" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT060</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALT065" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT065</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+              <tr data-ephemeris-row="ALTMAX" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALTMAX</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <footer class="ephemeris-drawer__footer">
+        <p class="text-ko" lang="ko">천문 조건 &middot; Stellarium 26.2</p>
+        <button type="button" class="control-link text-en" lang="en" data-ephemeris-csv>Download CSV</button>
+      </footer>
+    </div>
+  </section>
+
+  <div class="drawer-backdrop" data-drawer-backdrop="connection" hidden></div>
+
+  <section class="info-dialog" id="connection-dialog" role="dialog" aria-modal="true" aria-labelledby="connection-dialog-title" aria-hidden="true">
+    <div class="info-dialog__inner">
+      <header class="info-dialog__head">
+        <h2 id="connection-dialog-title" class="info-dialog__title text-en" lang="en" data-connection-dialog-title>Stellarium connected</h2>
+        <button type="button" class="info-dialog__close text-en" lang="en" data-drawer-close="connection">Close</button>
+      </header>
+      <div class="info-dialog__body" data-connection-dialog-body>
+        <p class="text-ko" lang="ko">Solarchem이 Stellarium에서 현재 위치, 시간, 태양 위치를 실시간으로 받고 있습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="drawer-backdrop" data-drawer-backdrop="how-to-use" hidden></div>
+
+  <section class="info-dialog" id="how-to-use-dialog" role="dialog" aria-modal="true" aria-labelledby="how-to-use-dialog-title" aria-hidden="true">
+    <div class="info-dialog__inner">
+      <header class="info-dialog__head">
+        <h2 id="how-to-use-dialog-title" class="info-dialog__title text-en" lang="en">How to use Solarchem</h2>
+        <button type="button" class="info-dialog__close text-en" lang="en" data-drawer-close="how-to-use">Close</button>
+      </header>
+      <div class="info-dialog__body">
+        <ol class="how-to-use__steps">
+          <li>
+            <h3 class="how-to-use__step-title text-ko" lang="ko">Step 1 &middot; Stellarium 실행</h3>
+            <p class="text-ko" lang="ko">Stellarium 실행</p>
+            <p class="text-ko" lang="ko">Remote Control 활성화 (설정 &rarr; 플러그인 &rarr; Remote Control &rarr; 서버 활성화)</p>
+            <p class="text-ko" lang="ko">기본 연결: localhost:8090</p>
+            <div data-howto-runtime="hosted" hidden>
+              <p class="text-ko" lang="ko">최초 1회만: Remote Control 설정에서 "Enable CORS for the following origin"을 켜고 origin에 <code class="text-en" lang="en" data-hosted-cors-origin>&mdash;</code> 입력</p>
+            </div>
+          </li>
+          <li>
+            <h3 class="how-to-use__step-title text-ko" lang="ko">Step 2 &middot; Solarchem 실행</h3>
+            <div data-howto-runtime="packaged" hidden>
+              <p class="text-ko" lang="ko">Solarchem 앱을 더블클릭해 실행 &middot; 로컬 서버가 자동으로 시작됩니다(Python 설치 불필요)</p>
+            </div>
+            <div data-howto-runtime="browser" hidden>
+              <p class="text-ko" lang="ko">Solarchem 프로젝트 폴더 준비 &middot; Python 설치 확인</p>
+              <p class="text-ko" lang="ko">Terminal 실행 &middot; Solarchem 폴더로 이동 (경로는 사용자 환경마다 다름)</p>
+              <p class="text-ko" lang="ko">로컬 서버 실행: <code class="text-en" lang="en">python3 -m http.server 8000</code></p>
+              <p class="text-ko" lang="ko">Windows: Python Launcher가 있으면 <code class="text-en" lang="en">py -m http.server 8000</code>, 또는 <code class="text-en" lang="en">python -m http.server 8000</code></p>
+              <p class="text-ko" lang="ko">브라우저에서 <code class="text-en" lang="en">http://localhost:8000</code> 접속</p>
+            </div>
+            <div data-howto-runtime="hosted" hidden>
+              <p class="text-ko" lang="ko">이미 이 페이지(<code class="text-en" lang="en" data-hosted-url>&mdash;</code>)가 Solarchem입니다 &middot; 별도 설치나 서버 실행이 필요 없습니다</p>
+            </div>
+          </li>
+          <li>
+            <h3 class="how-to-use__step-title text-ko" lang="ko">Step 3 &middot; 위치&middot;시간 설정</h3>
+            <p class="text-ko" lang="ko">Option A &mdash; Stellarium에서 직접 위치&middot;시간 설정</p>
+            <p class="text-ko" lang="ko">Option B &mdash; 코드로 위치&middot;시간 설정: 코드 수정 &rarr; 위도&middot;경도&middot;고도&middot;시간대&middot;현지 날짜시간 수정 &rarr; 전체 복사 &rarr; Stellarium Script Console 열기 &rarr; 코드 붙여넣기 &rarr; 스크립트 실행 &rarr; 위치&middot;시간 변경 확인 &rarr; Solarchem으로 복귀</p>
+            <p class="how-to-use__script-controls">
+              <button type="button" class="control-link text-ko" lang="ko" data-drawer-trigger="script-editor" aria-expanded="false" aria-controls="script-editor-dialog">코드 수정</button>
+            </p>
+          </li>
+          <li>
+            <h3 class="how-to-use__step-title text-ko" lang="ko">Step 4 &middot; Solarchem 연결</h3>
+            <p class="text-ko" lang="ko">Connect Stellarium(이미 연결된 경우 Sync Stellarium) 선택</p>
+          </li>
+          <li>
+            <h3 class="how-to-use__step-title text-ko" lang="ko">Step 5 &middot; 현재 조건 확인</h3>
+            <p class="text-ko" lang="ko">Experiment에서 현재 위치&middot;시간&middot;태양의 천문학적 위치 확인</p>
+          </li>
+          <li>
+            <h3 class="how-to-use__step-title text-ko" lang="ko">Step 6 &middot; Solar Spectrum 확인</h3>
+            <p class="text-ko" lang="ko">Solar Spectrum에서 현재 조건의 290&ndash;400 nm 직달 UV 광자 스펙트럼 확인</p>
+          </li>
+          <li>
+            <h3 class="how-to-use__step-title text-ko" lang="ko">Step 7 &middot; Molecular Response 확인</h3>
+            <p class="text-ko" lang="ko">Molecular Response에서 Benzophenone, Luteolin, Quercetin의 광자 흡수 반응 비교</p>
+            <p class="text-ko" lang="ko">참고 데이터로 돌아가려면 &ldquo;Use reference data&rdquo; 선택</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <div class="drawer-backdrop" data-drawer-backdrop="script-editor" hidden></div>
+
+  <section class="info-dialog info-dialog--wide" id="script-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="script-editor-dialog-title" aria-hidden="true">
+    <div class="info-dialog__inner">
+      <header class="info-dialog__head">
+        <h2 id="script-editor-dialog-title" class="info-dialog__title text-ko" lang="ko">코드 수정</h2>
+        <button type="button" class="info-dialog__close text-en" lang="en" data-drawer-close="script-editor">Close</button>
+      </header>
+      <div class="info-dialog__body">
+        <p class="text-ko" lang="ko">5개 값만 수정: 위도&middot;경도&middot;고도&middot;시간대(TIMEZONE, 예: <code class="text-en" lang="en">Asia/Seoul</code>, <code class="text-en" lang="en">Europe/London</code>, <code class="text-en" lang="en">America/New_York</code>)&middot;현지 날짜시간(DATE_TIME, 위 시간대 기준) &rarr; 전체 복사 &rarr; Stellarium Script Console에 붙여넣고 실행 &rarr; Solarchem으로 돌아와 Sync.</p>
+        <textarea class="script-editor__textarea text-en" lang="en" data-script-editor-textarea rows="20" spellcheck="false" aria-label="Stellarium script code"></textarea>
+        <p class="script-editor__controls">
+          <button type="button" class="control-link text-ko" lang="ko" data-script-copy>전체 복사</button>
+          <button type="button" class="control-link text-ko" lang="ko" data-script-reset>코드 초기화</button>
+          <span class="how-to-use__script-status text-ko" lang="ko" data-script-copy-status aria-live="polite"></span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-rail" data-site-rail aria-label="Persistent navigation">
+    <div class="site-rail__mini" id="mini-ephemeris">
+      <span class="text-en" lang="en">Incheon</span>
+      <span class="site-rail__mini-sep" aria-hidden="true">&middot;</span>
+      <span class="text-en data-slot" lang="en" data-mini-ephemeris="local-time">DATA SLOT</span>
+      <span class="site-rail__mini-sep" aria-hidden="true">&middot;</span>
+      <span class="text-en" lang="en">Sun <span class="data-slot" data-mini-ephemeris="altitude">&mdash;</span></span>
+    </div>
+
+    <nav class="site-rail__nav" aria-label="Section navigation">
+      <ol>
+        <li><a href="#experiment" data-rail-link="experiment"><span class="idx-num">01</span><span class="text-en" lang="en">Experiment</span></a></li>
+        <li><a href="#solar-spectrum" data-rail-link="solar-spectrum"><span class="idx-num">02</span><span class="text-en" lang="en">Solar</span></a></li>
+        <li><a href="#molecular-response" data-rail-link="molecular-response"><span class="idx-num">03</span><span class="text-en" lang="en">Molecular</span></a></li>
+        <li><a href="#results" data-rail-link="results"><span class="idx-num">04</span><span class="text-en" lang="en">Results</span></a></li>
+        <li><a href="#method" data-rail-link="method"><span class="idx-num">05</span><span class="text-en" lang="en">Method</span></a></li>
+      </ol>
+    </nav>
+
+    <div class="site-rail__triggers">
+      <button type="button" class="site-rail__trigger site-rail__trigger--quiet text-en" lang="en" id="how-to-use-trigger" data-drawer-trigger="how-to-use" aria-expanded="false" aria-controls="how-to-use-dialog">How to use</button>
+      <button type="button" class="site-rail__trigger text-en" lang="en" id="ephemeris-trigger" data-drawer-trigger="ephemeris-drawer" aria-expanded="false" aria-controls="ephemeris-drawer" data-label-open="Ephemeris &#8599;" data-label-close="Close &#8595;">Ephemeris &#8599;</button>
+    </div>
+  </footer>
+
+  <script src="js/stellarium-api.js"></script>
+  <script src="js/astronomy-data.js"></script>
+  <script src="js/solar-model.js"></script>
+  <script src="js/photochemistry.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/canonical-data.js"></script>
+  <script src="js/live-integration.js"></script>
+  <script src="js/ui-shell.js"></script>
 </body>
 </html>

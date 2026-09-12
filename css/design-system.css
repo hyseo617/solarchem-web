@@ -1,0 +1,162 @@
+/* SolarChem Design System — Phase 8B-1
+   Typography tokens, font-face registrations, color/spacing tokens.
+   Swap font files or token values here to change the whole site.
+
+   Font roles:
+   - The hero wordmark is a static image (assets/branding/solarchem-wordmark.png),
+     not live text — no font-family applies to it.
+   - system-ui stack: all general website typography (nav, headings, body,
+     tables, ephemeris, footer, everything except equation formulas).
+     Native San Francisco on macOS/iOS, Segoe UI on Windows, native Korean
+     UI font where available, NanumSquareRound as a local webfont fallback
+     otherwise. No Apple font binary is bundled here.
+   - TimesNewerRoman: equation formulas only.
+
+   font/Worldstar.ttf and font/Caprasimo-Regular.ttf remain on disk (previous
+   wordmark candidates, kept as assets) but are not referenced by any
+   font-family in this file. */
+
+/* ---------------------------------------------------------------
+   FONT FACES
+   --------------------------------------------------------------- */
+
+@font-face {
+  font-family: "NanumSquareRound SolarChem";
+  src: url("../font/NanumSquareRoundOTFL.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "NanumSquareRound SolarChem";
+  src: url("../font/NanumSquareRoundOTFR.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "NanumSquareRound SolarChem";
+  src: url("../font/NanumSquareRoundOTFB.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "TimesNewerRoman SolarChem";
+  src: url("../font/TimesNewerRoman-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "TimesNewerRoman SolarChem";
+  src: url("../font/TimesNewerRoman-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "TimesNewerRoman SolarChem";
+  src: url("../font/TimesNewerRoman-Italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "TimesNewerRoman SolarChem";
+  src: url("../font/TimesNewerRoman-BoldItalic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ---------------------------------------------------------------
+   TOKENS
+   --------------------------------------------------------------- */
+
+:root {
+  /* font families — the wordmark is plain text now (no image); everything
+     uses the system UI stack except equations (--font-math). */
+  --font-ui:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Apple SD Gothic Neo",
+    "Malgun Gothic",
+    "NanumSquareRound SolarChem",
+    Arial,
+    sans-serif;
+  --font-math: "TimesNewerRoman SolarChem", "Times New Roman", serif;
+
+  /* color — plain document palette. The only color outside this list is
+     --chart-accent, and it is used exclusively inside chart SVGs (spectrum
+     line + Luteolin compound line) to distinguish data series — never for
+     UI chrome (buttons, links, focus rings, selection state). */
+  --color-canvas: #ffffff;
+  --color-canvas-raised: #f2f2f0;
+  --color-ink: #111111;
+  --color-ink-soft: #48484a;
+  --color-gray: #666666;
+  --color-rule: #e2e2e0;
+  --chart-accent: #5b4b93;
+
+  --rule-color: var(--color-rule);
+  --rule-width: 1px;
+
+  /* type scale — plain document sizes, modeled on tests/astronomy-data-test.html
+     (h1 ~1.3rem, h2 ~1.05rem, body 16px, td/th ~0.92rem). */
+  --text-brand: 1.3125rem;         /* 21px — header logotype text */
+  --text-intro-h1: 1.5rem;         /* 24px — intro statement heading */
+  --text-section-index: 0.9375rem; /* 15px — 01-05 section index */
+  --text-h2: 1.1875rem;            /* 19px — section headings, dialog titles */
+  --text-h3: 0.9375rem;            /* 15px — lead/statement text, result & table titles */
+  --text-body: 1rem;               /* 16px — body copy, field values, table cells */
+  --text-small: 0.8125rem;         /* 13px — captions, nav, micro-labels */
+  --text-micro: 0.6875rem;         /* 11px — index numbers, footer meta */
+
+  /* spacing — tighter than the previous editorial scale */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 3.5rem;
+  --space-3xl: 4.5rem;
+
+  /* layout */
+  --content-max: 64rem;   /* ~1024px, plain document width */
+  --content-pad: 1.5rem;
+  --rail-height: 2.75rem;
+  --header-height: 4.03125rem; /* measured: sticky .site-header rendered height, desktop */
+
+  /* motion */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-standard: 300ms;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --content-pad: 1rem;
+    --space-xl: 2rem;
+    --space-2xl: 2.5rem;
+    --space-3xl: 3rem;
+    --header-height: 9.84375rem; /* measured: .site-header stacks to 3 rows on mobile (brand, then nav wraps) */
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-standard: 0ms;
+  }
+}
