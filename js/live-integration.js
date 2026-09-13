@@ -64,6 +64,23 @@
   // (reports/validation/phase10e-a-hosted-live-state-investigation.md).
   var STALE_SUN_MESSAGE = 'Stellarium connected \u2014 Sun position not refreshed yet; bring the Stellarium window to the foreground and reselect the condition';
 
+  // Phase 10F — Live ALT daily altitude solver (see solveLiveAltitudeTarget()).
+  // Coarse scan step across the live local day (25 samples: 00:00 ... 23:00,
+  // 23:59:59). setDateTime() takes whole seconds, so 1 s is also the finest
+  // time resolution of every refinement below. The clock is paused for the
+  // whole search (setTimeRate(0), original rate restored afterward): with it
+  // running, Stellarium re-renders the Sun every ~60 ms on the OLD timeline,
+  // so "the reading changed" says nothing about the new time (measured on
+  // Stellarium 26.2). Paused, a frame is a pure function of the written time,
+  // and a Sun reading after a time change is accepted only once its
+  // (altitude, azimuth) pair differs from the previous accepted pair; Stellarium recomputes the Sun on a render frame (measured
+  // 64-69 ms in the foreground, never while backgrounded - Phase 10E-A), so
+  // 30 polls x 50 ms is ~20 frames of headroom before declaring it stale.
+  var LIVE_SOLVER_COARSE_STEP_S = 3600;
+  var LIVE_SOLVER_LAST_SECOND_OF_DAY = 86399;
+  var LIVE_SOLVER_FRESH_POLL_INTERVAL_MS = 50;
+  var LIVE_SOLVER_FRESH_POLL_MAX_ATTEMPTS = 30;
+
   var COMPOUND_IDS = ['benzophenone', 'luteolin', 'quercetin'];
   var COMPOUND_FILES = Object.freeze({
     benzophenone: 'data/derived/compounds/benzophenone-290-400nm.json',
@@ -72,6 +89,28 @@
   });
   var ASTM_G173_PATH = 'data/derived/solar-spectrum-astm-g173.json';
   var OZONE_CROSS_SECTION_PATH = 'data/derived/ozone-cross-section-243k.json';
+
+  // Phase 10F. Stellarium simulation clock rate (JD per real second: 0 =
+  // paused, 1/86400 = real time), used only by the Live ALT solver to hold
+  // Stellarium's clock still while sampling the Sun and to put the user's own
+  // rate back afterward. js/stellarium-api.js is a protected file whose
+  // setDateTime() deliberately never sends `timerate`, so - exactly like
+  // scripts/phase5-build-experiment-conditions.js's setSimulationTimerate shim -
+  // this thin helper lives outside it and reuses that file's own
+  // stellariumFetch() (same base URL, same "error:" body handling) to send
+  // ONLY the documented optional `timerate` parameter of /api/main/time
+  // (docs/api-notes.md §2.3). It never sends a time or location value.
+  function defaultSetTimeRate(rate) {
+    if (typeof rate !== 'number' || !isFinite(rate)) {
+      return Promise.reject(new Error('timerate must be a finite number, got ' + rate));
+    }
+    if (typeof global.stellariumFetch !== 'function') {
+      return Promise.reject(new Error('stellariumFetch (js/stellarium-api.js) is not loaded'));
+    }
+    return global.stellariumFetch('/api/main/time', { method: 'POST', body: { timerate: rate } }).then(function (text) {
+      return { ok: String(text).trim() === 'ok', raw: text };
+    });
+  }
 
   function defaultFetchJson(path) {
     return fetch(path).then(function (response) {
@@ -125,8 +164,8 @@
     var api = {
       checkConnection: deps.checkConnection || global.checkConnection,
       getObservationConditions: deps.getObservationConditions || global.getObservationConditions,
-      setLocation: deps.setLocation || global.setLocation,
       setDateTime: deps.setDateTime || global.setDateTime,
+      setTimeRate: deps.setTimeRate || defaultSetTimeRate,
       buildSolarSpectrumData: deps.buildSolarSpectrumData || global.buildSolarSpectrumData,
       calculateSolarSpectrum: deps.calculateSolarSpectrum || global.calculateSolarSpectrum,
       computeSpectralAbsorption: deps.computeSpectralAbsorption || global.computeSpectralAbsorption,
@@ -141,6 +180,15 @@
     var listeners = [];
     var requestGeneration = 0;
     var referenceDataPromise = null;
+    // Phase 10F: the Live ALT solver holds Stellarium's clock still while it
+    // samples the Sun. pausedTimeRate is the user's ORIGINAL rate for as long
+    // as any solve owns the pause; pauseOwnerGeneration is the requestGeneration
+    // of the solve responsible for putting it back. A superseding solve takes
+    // ownership and inherits the original rate (never the paused 0); a solve
+    // superseded by anything else (Connect/Sync, return to Reference) restores
+    // the rate itself.
+    var pausedTimeRate = null;
+    var pauseOwnerGeneration = null;
 
     function subscribe(callback) {
       listeners.push(callback);
@@ -245,18 +293,24 @@
     // reference data -> solar model -> photochemistry -> canonical match)
     // and commits to `state` only if every step succeeds (docs §10 — no
     // partial live state is ever exposed to the UI).
-    // options.unconfirmedConditionId (Phase 10E-B): the canonical conditionId
-    // whose explicit application could NOT be verified because Stellarium's
-    // Sun was stale. When set, this sync still publishes the true live state
-    // (Stellarium is connected and the read is real), and attaches the
-    // stale-Sun notice - but only if the freshly matched condition still is
-    // not that one. If Stellarium happened to recompute between the failed
-    // verification and this read, the match is genuine and no notice is
-    // raised, so the UI never warns about a condition that did apply.
+    // options (Phase 10F):
+    //   confirmedLiveTarget { conditionId, altitudeDeg } - a Live ALT solve
+    //     just left Stellarium at a time whose freshly read Sun altitude
+    //     matched the target. It is labelled with that conditionId only if
+    //     THIS read still agrees within CANONICAL_MATCH_TOLERANCE.altitudeDeg;
+    //     otherwise the state stays CUSTOM with the stale-Sun notice, so a
+    //     label is never granted from time alone.
+    //   notice { kind, message } - a truthful, still-connected outcome of a
+    //     Live ALT request (stale Sun, unreachable target, search failure).
+    //   fromLiveSolve - skip the transient 'connecting' render, which would
+    //     otherwise repaint the frozen Incheon reference over the user's live
+    //     location/date while this re-read runs.
     function sync(options) {
       options = options || {};
       var myGeneration = ++requestGeneration;
-      setState({ connection: 'connecting', error: null });
+      if (!options.fromLiveSolve) {
+        setState({ connection: 'connecting', error: null });
+      }
 
       return api.checkConnection().then(function (connResult) {
         if (myGeneration !== requestGeneration) return;
@@ -279,9 +333,15 @@
           return matchCanonicalCondition(observation).then(function (conditionMatch) {
             if (myGeneration !== requestGeneration) return;
             var match = conditionMatch || 'custom';
-            var staleSunNotice = options.unconfirmedConditionId && match !== options.unconfirmedConditionId
-              ? { kind: 'stellarium-stale-sun', message: STALE_SUN_MESSAGE }
-              : null;
+            var notice = options.notice || null;
+            var target = options.confirmedLiveTarget;
+            if (target) {
+              if (Math.abs(observation.sun.altitudeGeometricDeg - target.altitudeDeg) <= CANONICAL_MATCH_TOLERANCE.altitudeDeg) {
+                match = target.conditionId;
+              } else {
+                notice = { kind: 'stellarium-stale-sun', message: STALE_SUN_MESSAGE };
+              }
+            }
             setState({
               mode: 'live',
               connection: 'connected',
@@ -294,7 +354,7 @@
               selectedConditionMatch: match,
               locationDisplay: locationDisplay,
               lastUpdated: Date.now(),
-              error: staleSunNotice
+              error: notice
             });
           });
         });
@@ -310,117 +370,387 @@
       });
     }
 
-    // Bounded retry: re-reads ObservationConditions until it converges on
-    // the requested canonical row's location/time AND Sun altitude, or gives
-    // up. Never polls indefinitely (docs §21).
+    // ---------------------------------------------------------------
+    // Phase 10F — Live ALT: Stellarium-driven daily altitude solver.
     //
-    // Phase 10E-B: the Sun check is the load-bearing one. Location and time
-    // both come from Stellarium's /api/main/status, which updates immediately
-    // (measured 6-45 ms); the Sun comes from /api/objects/info, which
-    // Stellarium recomputes only on a render frame (measured: foreground
-    // 64-69 ms, background never - 0/10 within 6-10 s). Gating on
-    // location/time alone therefore tested only the half of the system that
-    // never fails, and returned success at +7 ms with the Sun 10.0019 deg
-    // wrong (reports/validation/phase10e-a-hosted-live-state-investigation.md).
-    // altitudeGeometricDeg is read from the same fresh
-    // api.getObservationConditions() call that already supplies location and
-    // time - no extra request, no astronomical calculation of our own - and
-    // is compared against the canonical row's own
-    // stellariumAltitudeGeometricDeg using the SAME
-    // CANONICAL_MATCH_TOLERANCE.altitudeDeg that matchCanonicalCondition()
-    // uses, so "verified applied" and "matched canonical" agree by
-    // construction instead of by luck. No looser tolerance is introduced.
-    function verifyConditionApplied(targetRow) {
-      function attempt(remaining) {
+    // Pre-10F, a Live ALT click applied the frozen Phase 8A Incheon row
+    // (setLocation(Incheon, 43 m) + setDateTime on the frozen 2026-08-13
+    // reference date at UTC+09:00), moving a user on e.g. London 2026-09-11 back to the
+    // reference condition. In live mode an ALT control now changes Stellarium
+    // TIME ONLY: location, elevation, the live local calendar date and
+    // Stellarium's timezone are never written. Every Sun altitude used below
+    // is read back from Stellarium through api.getObservationConditions();
+    // Solarchem computes none.
+    //
+    // Algorithm (all times are whole seconds of the ORIGINAL live local date,
+    // written with the live UTC offset label derived from Stellarium's own
+    // status.time.gmtShift):
+    //   1. Coarse scan: 00:00, 01:00, ... 23:00, 23:59:59 (25 writes).
+    //   2. Daily maximum: golden-section search inside the two coarse steps
+    //      around the highest sample, down to a 2 s bracket (~18 writes).
+    //      MAX targets stop here.
+    //   3. Numeric target T: the rising crossing is bracketed by the last
+    //      coarse step before the maximum that goes from below T to at/above
+    //      T; the setting crossing by the first step after it that goes back
+    //      below T. Each is bisected to a 1 s bracket (~12 writes each) and
+    //      the endpoint closer to T is kept; it must lie within
+    //      CANONICAL_MATCH_TOLERANCE.altitudeDeg. If the maximum itself is
+    //      within tolerance of T and no strict crossing exists, the maximum
+    //      is the solution.
+    //   4. Morning/evening rule: of the solutions found, the one whose time is
+    //      nearest the user's ORIGINAL live time wins (tie -> earlier).
+    //   5. Stellarium is left at the chosen time, confirmed by a fresh read,
+    //      and the user's original clock rate is restored.
+    // Stellarium's clock is paused (timerate 0) from just after the original
+    // state is read until the search ends, whatever the outcome - the only
+    // non-time-value write, always undone (see defaultSetTimeRate above for
+    // why sampling a running clock is unsound).
+    // Worst case for a numeric target: 25 + ~18 + 24 + 1 time writes.
+    //
+    // Unreachable target, stale Sun, or any other failure: the original live
+    // time is restored (to the second) whenever the observer location was
+    // not changed underneath the search, and no canonical data is used.
+    // ---------------------------------------------------------------
+
+    function liveTargetFromConditionId(conditionId) {
+      if (conditionId === 'ALTMAX') return { conditionId: conditionId, kind: 'max' };
+      var m = /^ALT(\d{3})$/.exec(conditionId || '');
+      return m ? { conditionId: conditionId, kind: 'altitude', altitudeDeg: Number(m[1]) } : null;
+    }
+
+    function pad2(n) {
+      return (n < 10 ? '0' : '') + n;
+    }
+
+    function formatUtcOffsetLabel(offsetMinutes) {
+      var abs = Math.abs(offsetMinutes);
+      return 'UTC' + (offsetMinutes < 0 ? '-' : '+') + pad2(Math.floor(abs / 60)) + ':' + pad2(abs % 60);
+    }
+
+    function secondOfDayToTime(sec) {
+      return pad2(Math.floor(sec / 3600)) + ':' + pad2(Math.floor(sec / 60) % 60) + ':' + pad2(sec % 60);
+    }
+
+    function liveSolverError(kind, message, extra) {
+      var err = new Error(message);
+      err.liveSolverKind = kind;
+      if (extra) Object.keys(extra).forEach(function (k) { err[k] = extra[k]; });
+      return err;
+    }
+
+    function solveLiveAltitudeTarget(canonicalRow, myGeneration) {
+      var target = liveTargetFromConditionId(canonicalRow && canonicalRow.conditionId);
+      var ctx = null;
+      var cache = {};
+      // A stale Stellarium frame repeats the previous Sun object byte-for-byte
+      // (altitude AND azimuth - Phase 9H-C/10E-A). Two genuinely different
+      // times can share an altitude (either side of transit), but not an
+      // azimuth, so freshness is judged on the pair, never on altitude alone.
+      var lastAccepted = null;
+      var physicalSec = null;
+      var restoreSafe = true;
+
+      function checkSuperseded() {
+        if (myGeneration !== requestGeneration) throw liveSolverError('superseded', 'superseded by a newer request', { superseded: true });
+      }
+
+      function delay(ms) {
+        return new Promise(function (resolve) { setTimeout(resolve, ms); });
+      }
+
+      function readOriginal() {
         return api.getObservationConditions().then(function (result) {
-          var obs = result.observation;
-          var latOk = Math.abs(obs.location.latitudeDeg - Number(targetRow.latitudeDeg)) <= CANONICAL_MATCH_TOLERANCE.locationDeg;
-          var lonOk = Math.abs(obs.location.longitudeDeg - Number(targetRow.longitudeDeg)) <= CANONICAL_MATCH_TOLERANCE.locationDeg;
-          var timeOk = Math.abs(new Date(obs.time.utcIso).getTime() - new Date(targetRow.utcDateTime).getTime()) <= CANONICAL_MATCH_TOLERANCE.timeMs;
-          var altOk = Math.abs(obs.sun.altitudeGeometricDeg - Number(targetRow.stellariumAltitudeGeometricDeg)) <= CANONICAL_MATCH_TOLERANCE.altitudeDeg;
-          if (latOk && lonOk && timeOk && altOk) return obs;
-          if (remaining <= 0) {
-            // Distinguish the two failure modes: Stellarium accepted the
-            // write and only its Sun is behind (recoverable, still
-            // connected), versus it never took the location/time at all.
-            if (latOk && lonOk && timeOk) {
-              var staleErr = new Error('Stellarium applied the requested location/time but its Sun position is still stale');
-              staleErr.staleSun = true;
-              throw staleErr;
-            }
-            throw new Error('Stellarium did not converge to the requested condition within the retry budget');
+          var status = result && result.diagnostics && result.diagnostics.raw ? result.diagnostics.raw.status : null;
+          var time = status && status.time;
+          var m = time && typeof time.local === 'string' ? /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(time.local) : null;
+          if (!m || typeof time.gmtShift !== 'number' || !isFinite(time.gmtShift)) {
+            throw liveSolverError('failed', 'Stellarium did not report its local time and UTC offset');
           }
-          return new Promise(function (resolve) {
-            setTimeout(resolve, STELLARIUM_SET_VERIFY_INTERVAL_MS);
-          }).then(function () {
-            return attempt(remaining - 1);
+          if (typeof time.timerate !== 'number' || !isFinite(time.timerate)) {
+            throw liveSolverError('failed', 'Stellarium did not report its clock rate');
+          }
+          var offsetMinutes = Math.round(time.gmtShift * 1440);
+          var obs = result.observation;
+          ctx = {
+            date: m[1] + '-' + m[2] + '-' + m[3],
+            originalSec: Number(m[4]) * 3600 + Number(m[5]) * 60 + Number(m[6]),
+            offsetLabel: formatUtcOffsetLabel(offsetMinutes),
+            dayStartUtcMs: Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) - offsetMinutes * 60000,
+            latitudeDeg: obs.location.latitudeDeg,
+            longitudeDeg: obs.location.longitudeDeg,
+            altitudeM: obs.location.altitudeM,
+            timeRate: time.timerate
+          };
+          lastAccepted = { alt: obs.sun.altitudeGeometricDeg, az: obs.sun.azimuthDeg };
+        });
+      }
+
+      function pairOf(obs) {
+        return { alt: obs.sun.altitudeGeometricDeg, az: obs.sun.azimuthDeg };
+      }
+
+      function samePair(a, b) {
+        return a.alt === b.alt && a.az === b.az;
+      }
+
+      // After pausing, Stellarium may still render one last frame (measured:
+      // exactly one Sun change right after timerate=0). The baseline for the
+      // freshness rule is taken only once two consecutive reads agree.
+      function settleBaseline(prev, attemptsLeft) {
+        checkSuperseded();
+        return api.getObservationConditions().then(function (result) {
+          checkSuperseded();
+          var pair = pairOf(result.observation);
+          if (prev && samePair(prev, pair)) {
+            lastAccepted = pair;
+            return;
+          }
+          if (attemptsLeft <= 1) throw liveSolverError('failed', 'Stellarium\'s clock did not settle after pausing it');
+          return delay(LIVE_SOLVER_FRESH_POLL_INTERVAL_MS).then(function () {
+            return settleBaseline(pair, attemptsLeft - 1);
           });
         });
       }
-      return attempt(STELLARIUM_SET_VERIFY_MAX_ATTEMPTS - 1);
-    }
 
-    // canonicalRow: the exact object ui-shell.js's onConditionChange already
-    // passes (a Phase 8A CSV row) — location/date/time are read from it, not
-    // re-typed here (docs §20).
-    function setLocationAndTimeForCondition(canonicalRow) {
-      var localMatch = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/.exec(canonicalRow.localDateTimeKst || '');
-      if (!localMatch) {
-        return Promise.reject(new Error('canonical row is missing a parseable localDateTimeKst'));
+      function pauseClock() {
+        checkSuperseded();
+        if (typeof api.setTimeRate !== 'function') throw liveSolverError('failed', 'Stellarium clock-rate control is unavailable');
+        if (pausedTimeRate === null) pausedTimeRate = ctx.timeRate;
+        pauseOwnerGeneration = myGeneration;
+        return api.setTimeRate(0).then(function (res) {
+          if (!res || !res.ok) throw liveSolverError('failed', 'Stellarium did not confirm pausing its clock');
+          return settleBaseline(null, LIVE_SOLVER_FRESH_POLL_MAX_ATTEMPTS);
+        });
       }
-      var date = localMatch[1];
-      var time = localMatch[2];
 
-      return api.setLocation({
-        latitude: Number(canonicalRow.latitudeDeg),
-        longitude: Number(canonicalRow.longitudeDeg),
-        altitude: Number(canonicalRow.observerAltitudeM)
-      }).then(function (locationResult) {
-        if (!locationResult.ok) {
-          throw new Error('Stellarium setLocation did not confirm ok');
+      // Resolves to null, or to a note if the original rate could not be put back.
+      function restoreClockRate() {
+        if (pauseOwnerGeneration !== myGeneration || pausedTimeRate === null) return Promise.resolve(null);
+        var rate = pausedTimeRate;
+        pausedTimeRate = null;
+        pauseOwnerGeneration = null;
+        return Promise.resolve().then(function () { return api.setTimeRate(rate); }).then(function () {
+          return null;
+        }, function (e) {
+          return 'the original clock rate could not be restored: ' + (e && e.message ? e.message : String(e));
+        });
+      }
+
+      function pollFresh(sec, attemptsLeft) {
+        checkSuperseded();
+        return api.getObservationConditions().then(function (result) {
+          checkSuperseded();
+          var obs = result.observation;
+          if (Math.abs(obs.location.latitudeDeg - ctx.latitudeDeg) > CANONICAL_MATCH_TOLERANCE.locationDeg ||
+              Math.abs(obs.location.longitudeDeg - ctx.longitudeDeg) > CANONICAL_MATCH_TOLERANCE.locationDeg ||
+              obs.location.altitudeM !== ctx.altitudeM) {
+            restoreSafe = false;
+            throw liveSolverError('failed', 'the Stellarium observer location changed during the search');
+          }
+          var timeOk = Math.abs(new Date(obs.time.utcIso).getTime() - (ctx.dayStartUtcMs + sec * 1000)) <= CANONICAL_MATCH_TOLERANCE.timeMs;
+          var pair = pairOf(obs);
+          if (timeOk && !samePair(pair, lastAccepted)) {
+            lastAccepted = pair;
+            cache[sec] = pair.alt;
+            return pair.alt;
+          }
+          if (attemptsLeft <= 1) {
+            if (timeOk) throw liveSolverError('stale-sun', 'Stellarium reported the requested time but its Sun position did not refresh');
+            throw liveSolverError('failed', 'Stellarium did not move to the requested time');
+          }
+          return delay(LIVE_SOLVER_FRESH_POLL_INTERVAL_MS).then(function () {
+            return pollFresh(sec, attemptsLeft - 1);
+          });
+        });
+      }
+
+      // Physically moves Stellarium to `sec` and returns its freshly read Sun altitude.
+      function moveTo(sec) {
+        checkSuperseded();
+        if (physicalSec === sec && cache.hasOwnProperty(sec)) return Promise.resolve(cache[sec]);
+        return api.setDateTime(ctx.date, secondOfDayToTime(sec), ctx.offsetLabel).then(function (res) {
+          if (!res || !res.ok) throw liveSolverError('failed', 'Stellarium did not confirm the time change');
+          physicalSec = sec;
+          return pollFresh(sec, LIVE_SOLVER_FRESH_POLL_MAX_ATTEMPTS);
+        });
+      }
+
+      function altitudeAt(sec) {
+        return cache.hasOwnProperty(sec) ? Promise.resolve(cache[sec]) : moveTo(sec);
+      }
+
+      function sequence(items, fn) {
+        return items.reduce(function (p, item) {
+          return p.then(function (acc) { return fn(item).then(function (v) { acc.push(v); return acc; }); });
+        }, Promise.resolve([]));
+      }
+
+      function coarseSeconds() {
+        var secs = [];
+        for (var sec = 0; sec < 86400; sec += LIVE_SOLVER_COARSE_STEP_S) secs.push(sec);
+        secs.push(LIVE_SOLVER_LAST_SECOND_OF_DAY);
+        return secs;
+      }
+
+      function findMaximum(coarse, alts) {
+        var iMax = 0;
+        for (var i = 1; i < alts.length; i += 1) if (alts[i] > alts[iMax]) iMax = i;
+        var lo = coarse[Math.max(iMax - 1, 0)];
+        var hi = coarse[Math.min(iMax + 1, coarse.length - 1)];
+        var invPhi = (Math.sqrt(5) - 1) / 2;
+        var a = lo;
+        var b = hi;
+        var c = b - Math.round((b - a) * invPhi);
+        var d = a + Math.round((b - a) * invPhi);
+
+        function step() {
+          if (b - a <= 2) return Promise.resolve();
+          if (c >= d) c = d - 1;
+          return Promise.all([altitudeAt(c)]).then(function () {
+            return altitudeAt(d);
+          }).then(function () {
+            if (cache[c] >= cache[d]) {
+              b = d; d = c; c = b - Math.round((b - a) * invPhi);
+            } else {
+              a = c; c = d; d = a + Math.round((b - a) * invPhi);
+            }
+            if (c <= a) c = a + 1;
+            if (d >= b) d = b - 1;
+            return step();
+          });
         }
-        return api.setDateTime(date, time, 'UTC+09:00');
-      }).then(function (timeResult) {
-        if (!timeResult.ok) {
-          throw new Error('Stellarium setDateTime did not confirm ok');
+
+        return step().then(function () {
+          var bestSec = null;
+          Object.keys(cache).forEach(function (k) {
+            var sec = Number(k);
+            if (bestSec === null || cache[sec] > cache[bestSec]) bestSec = sec;
+          });
+          return { sec: bestSec, altitudeDeg: cache[bestSec] };
+        });
+      }
+
+      // Bisects [lo, hi] (f(lo) and f(hi) on opposite sides of 0) to a 1 s bracket.
+      function bisect(lo, hi, loIsBelow, targetDeg) {
+        if (hi - lo <= 1) {
+          return Promise.all([altitudeAt(lo), altitudeAt(hi)]).then(function () {
+            var best = Math.abs(cache[lo] - targetDeg) <= Math.abs(cache[hi] - targetDeg) ? lo : hi;
+            if (Math.abs(cache[best] - targetDeg) > CANONICAL_MATCH_TOLERANCE.altitudeDeg) {
+              throw liveSolverError('failed', 'the crossing could not be refined to within ' + CANONICAL_MATCH_TOLERANCE.altitudeDeg + ' deg at 1 s resolution');
+            }
+            return best;
+          });
         }
-        return verifyConditionApplied(canonicalRow);
-      });
+        var mid = Math.floor((lo + hi) / 2);
+        return altitudeAt(mid).then(function (alt) {
+          var midBelow = alt < targetDeg;
+          return midBelow === loIsBelow ? bisect(mid, hi, loIsBelow, targetDeg) : bisect(lo, mid, loIsBelow, targetDeg);
+        });
+      }
+
+      function findCrossings(coarse, max, targetDeg) {
+        var rising = coarse.filter(function (sec) { return sec < max.sec; }).concat([max.sec]);
+        var setting = [max.sec].concat(coarse.filter(function (sec) { return sec > max.sec; }));
+        var jobs = [];
+        for (var i = rising.length - 2; i >= 0; i -= 1) {
+          if (cache[rising[i]] < targetDeg && cache[rising[i + 1]] >= targetDeg) {
+            jobs.push([rising[i], rising[i + 1], true]);
+            break;
+          }
+        }
+        for (var j = 0; j < setting.length - 1; j += 1) {
+          if (cache[setting[j]] >= targetDeg && cache[setting[j + 1]] < targetDeg) {
+            jobs.push([setting[j], setting[j + 1], false]);
+            break;
+          }
+        }
+        return sequence(jobs, function (job) { return bisect(job[0], job[1], job[2], targetDeg); });
+      }
+
+      function restoreAfterFailure(err) {
+        var timeStep = ctx && restoreSafe && !err.superseded
+          ? Promise.resolve().then(function () {
+            return api.setDateTime(ctx.date, secondOfDayToTime(ctx.originalSec), ctx.offsetLabel);
+          }).then(function () { return null; }, function (e) {
+            return 'the original time could not be restored: ' + (e && e.message ? e.message : String(e));
+          })
+          : Promise.resolve(null);
+        return timeStep.then(function (timeNote) {
+          return restoreClockRate().then(function (rateNote) {
+            var notes = [timeNote, rateNote].filter(Boolean);
+            if (notes.length) err.message += ' (' + notes.join('; ') + ')';
+            throw err;
+          });
+        });
+      }
+
+      if (!target) {
+        return Promise.reject(liveSolverError('failed', 'unsupported live altitude control ' + (canonicalRow && canonicalRow.conditionId)));
+      }
+
+      var coarse = coarseSeconds();
+      return readOriginal().then(pauseClock).then(function () {
+        return sequence(coarse, moveTo);
+      }).then(function (alts) {
+        return findMaximum(coarse, alts);
+      }).then(function (max) {
+        if (target.kind === 'max') return { sec: max.sec, altitudeDeg: max.altitudeDeg };
+        var tol = CANONICAL_MATCH_TOLERANCE.altitudeDeg;
+        if (max.altitudeDeg < target.altitudeDeg - tol) {
+          throw liveSolverError('unreachable', target.altitudeDeg + '° is not reached at this location on this date.');
+        }
+        return findCrossings(coarse, max, target.altitudeDeg).then(function (secs) {
+          if (secs.length === 0 && Math.abs(max.altitudeDeg - target.altitudeDeg) <= tol) secs = [max.sec];
+          if (secs.length === 0) {
+            throw liveSolverError('unreachable', target.altitudeDeg + '° is not reached at this location on this date.');
+          }
+          secs.sort(function (x, y) {
+            var dx = Math.abs(x - ctx.originalSec);
+            var dy = Math.abs(y - ctx.originalSec);
+            return dx !== dy ? dx - dy : x - y;
+          });
+          return { sec: secs[0], altitudeDeg: target.altitudeDeg };
+        });
+      }).then(function (chosen) {
+        return moveTo(chosen.sec).then(function (alt) {
+          if (Math.abs(alt - chosen.altitudeDeg) > CANONICAL_MATCH_TOLERANCE.altitudeDeg) {
+            throw liveSolverError('stale-sun', 'Stellarium\'s Sun at the chosen time does not match the target');
+          }
+          return restoreClockRate().then(function (rateNote) {
+            if (rateNote) throw liveSolverError('failed', rateNote);
+            return { conditionId: target.conditionId, altitudeDeg: chosen.altitudeDeg };
+          });
+        });
+      }).catch(restoreAfterFailure);
     }
 
-    // Called from ui-shell.js's existing onConditionChange subscription
-    // (docs §4/§18 — reuses the one selection state, never adds a second).
-    // A no-op in canonical mode: canonical altitude selection already works
-    // without touching Stellarium.
+    // Called from ui-shell.js's existing onConditionChange subscription for
+    // an explicit ALT button (docs §4/§18 — reuses the one selection state).
+    // A no-op in canonical/Reference mode: the frozen Incheon 2026-08-13
+    // ALT010-ALTMAX selection already works without touching Stellarium.
+    // In live mode it runs the time-only solver above; it never calls
+    // setLocation() and never applies the canonical row's location/date.
     function syncToCondition(canonicalRow) {
       if (state.mode !== 'live') return Promise.resolve();
 
       var myGeneration = ++requestGeneration;
-      setState({ connection: 'connecting', error: null });
 
-      return setLocationAndTimeForCondition(canonicalRow).then(function () {
+      return solveLiveAltitudeTarget(canonicalRow, myGeneration).then(function (solved) {
         if (myGeneration !== requestGeneration) return;
-        return sync();
-      }).catch(function (err) {
-        if (myGeneration !== requestGeneration) return;
+        return sync({ confirmedLiveTarget: solved, fromLiveSolve: true });
+      }, function (err) {
+        if ((err && err.superseded) || myGeneration !== requestGeneration) return;
         var detail = err && err.message ? err.message : String(err);
-        // Phase 10E-B: Stellarium is reachable and took the location/time
-        // write - only its Sun is behind. Dropping to connection 'error' /
-        // 'Stellarium unavailable' here would be untrue and would throw the
-        // user out of live mode. Publish the real live state instead; it
-        // labels itself CUSTOM through the existing matchCanonicalCondition()
-        // path, which already refuses to claim the requested condition, and
-        // carries the specific stale-Sun notice.
-        if (err && err.staleSun) {
-          logError('stellarium-stale-sun', detail);
-          return sync({ unconfirmedConditionId: canonicalRow.conditionId });
+        logError('live-altitude-solver', detail);
+        var notice;
+        if (err && err.liveSolverKind === 'stale-sun') {
+          notice = { kind: 'stellarium-stale-sun', message: STALE_SUN_MESSAGE };
+        } else if (err && err.liveSolverKind === 'unreachable') {
+          notice = { kind: 'live-target-unreachable', message: detail };
+        } else {
+          notice = { kind: 'live-target-failed', message: 'Live altitude search failed: ' + detail };
         }
-        logError('stellarium-set', detail);
-        setState({
-          connection: 'error',
-          error: { kind: 'stellarium-set', message: 'Stellarium unavailable' },
-          lastUpdated: Date.now()
-        });
+        return sync({ notice: notice, fromLiveSolve: true });
       });
     }
 
@@ -446,7 +776,8 @@
         LIVE_ATMOSPHERE: LIVE_ATMOSPHERE,
         CANONICAL_MATCH_TOLERANCE: CANONICAL_MATCH_TOLERANCE,
         computeLiveResult: computeLiveResult,
-        matchCanonicalCondition: matchCanonicalCondition
+        matchCanonicalCondition: matchCanonicalCondition,
+        setTimeRate: api.setTimeRate
       }
     };
   }
@@ -486,6 +817,9 @@
     }
 
     var REFERENCE_PROVENANCE_TEXT = 'Reference dataset';
+    // Still-connected live outcomes whose own message replaces
+    // 'Stellarium connected' (Phase 10E-B stale Sun; Phase 10F live ALT).
+    var LIVE_NOTICE_KINDS = { 'stellarium-stale-sun': true, 'live-target-unreachable': true, 'live-target-failed': true };
     var live = createLiveIntegration();
 
     // Step 3 real-E2E fix: restoreCanonicalSpectrumChart() (below) restores
@@ -523,6 +857,12 @@
         if (isRestoringCanonicalSpectrum) return;
         if (options && options.allowStellariumSync) {
           live.syncToCondition(condition);
+          // Phase 10F: ui-shell.js's selectCondition() has just painted the
+          // clicked frozen Incheon row and pressed its button. While live,
+          // put the user's real live state back on screen at once, so no
+          // reference location/date and no unconfirmed ALT selection is shown
+          // during the Stellarium search.
+          if (live.getState().mode === 'live') render(live.getState());
           return;
         }
         if (live.getState().mode === 'live') {
@@ -608,7 +948,7 @@
         // Phase 10E-B: still connected and still live, but the requested
         // condition was not confirmed because Stellarium's Sun had not
         // refreshed - say exactly that instead of 'Stellarium connected'.
-        if (liveState.error && liveState.error.kind === 'stellarium-stale-sun') {
+        if (liveState.error && LIVE_NOTICE_KINDS.hasOwnProperty(liveState.error.kind)) {
           messageEl.textContent = liveState.error.message;
           messageEl.classList.add('data-error');
         } else {
