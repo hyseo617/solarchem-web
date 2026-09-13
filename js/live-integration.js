@@ -56,6 +56,14 @@
   var STELLARIUM_SET_VERIFY_MAX_ATTEMPTS = 5;
   var STELLARIUM_SET_VERIFY_INTERVAL_MS = 300;
 
+  // Phase 10E-B. Shown when Stellarium is reachable and accepted the
+  // location/time write, but its Sun object has not been recomputed, so the
+  // requested condition cannot honestly be called applied. Deliberately NOT
+  // 'Stellarium unavailable' - the API is connected and the write succeeded;
+  // only Stellarium's own render-frame-tied astronomical state is behind
+  // (reports/validation/phase10e-a-hosted-live-state-investigation.md).
+  var STALE_SUN_MESSAGE = 'Stellarium connected \u2014 Sun position not refreshed yet; bring the Stellarium window to the foreground and reselect the condition';
+
   var COMPOUND_IDS = ['benzophenone', 'luteolin', 'quercetin'];
   var COMPOUND_FILES = Object.freeze({
     benzophenone: 'data/derived/compounds/benzophenone-290-400nm.json',
@@ -237,7 +245,16 @@
     // reference data -> solar model -> photochemistry -> canonical match)
     // and commits to `state` only if every step succeeds (docs §10 — no
     // partial live state is ever exposed to the UI).
-    function sync() {
+    // options.unconfirmedConditionId (Phase 10E-B): the canonical conditionId
+    // whose explicit application could NOT be verified because Stellarium's
+    // Sun was stale. When set, this sync still publishes the true live state
+    // (Stellarium is connected and the read is real), and attaches the
+    // stale-Sun notice - but only if the freshly matched condition still is
+    // not that one. If Stellarium happened to recompute between the failed
+    // verification and this read, the match is genuine and no notice is
+    // raised, so the UI never warns about a condition that did apply.
+    function sync(options) {
+      options = options || {};
       var myGeneration = ++requestGeneration;
       setState({ connection: 'connecting', error: null });
 
@@ -261,6 +278,10 @@
 
           return matchCanonicalCondition(observation).then(function (conditionMatch) {
             if (myGeneration !== requestGeneration) return;
+            var match = conditionMatch || 'custom';
+            var staleSunNotice = options.unconfirmedConditionId && match !== options.unconfirmedConditionId
+              ? { kind: 'stellarium-stale-sun', message: STALE_SUN_MESSAGE }
+              : null;
             setState({
               mode: 'live',
               connection: 'connected',
@@ -270,10 +291,10 @@
                 directActinicPhotonFlux: computed.spectrumResult.spectrum.directActinicPhotonFlux
               },
               molecular: computed.molecular,
-              selectedConditionMatch: conditionMatch || 'custom',
+              selectedConditionMatch: match,
               locationDisplay: locationDisplay,
               lastUpdated: Date.now(),
-              error: null
+              error: staleSunNotice
             });
           });
         });
@@ -290,8 +311,25 @@
     }
 
     // Bounded retry: re-reads ObservationConditions until it converges on
-    // the requested canonical row's location/time, or gives up. Never polls
-    // indefinitely (docs §21).
+    // the requested canonical row's location/time AND Sun altitude, or gives
+    // up. Never polls indefinitely (docs §21).
+    //
+    // Phase 10E-B: the Sun check is the load-bearing one. Location and time
+    // both come from Stellarium's /api/main/status, which updates immediately
+    // (measured 6-45 ms); the Sun comes from /api/objects/info, which
+    // Stellarium recomputes only on a render frame (measured: foreground
+    // 64-69 ms, background never - 0/10 within 6-10 s). Gating on
+    // location/time alone therefore tested only the half of the system that
+    // never fails, and returned success at +7 ms with the Sun 10.0019 deg
+    // wrong (reports/validation/phase10e-a-hosted-live-state-investigation.md).
+    // altitudeGeometricDeg is read from the same fresh
+    // api.getObservationConditions() call that already supplies location and
+    // time - no extra request, no astronomical calculation of our own - and
+    // is compared against the canonical row's own
+    // stellariumAltitudeGeometricDeg using the SAME
+    // CANONICAL_MATCH_TOLERANCE.altitudeDeg that matchCanonicalCondition()
+    // uses, so "verified applied" and "matched canonical" agree by
+    // construction instead of by luck. No looser tolerance is introduced.
     function verifyConditionApplied(targetRow) {
       function attempt(remaining) {
         return api.getObservationConditions().then(function (result) {
@@ -299,8 +337,17 @@
           var latOk = Math.abs(obs.location.latitudeDeg - Number(targetRow.latitudeDeg)) <= CANONICAL_MATCH_TOLERANCE.locationDeg;
           var lonOk = Math.abs(obs.location.longitudeDeg - Number(targetRow.longitudeDeg)) <= CANONICAL_MATCH_TOLERANCE.locationDeg;
           var timeOk = Math.abs(new Date(obs.time.utcIso).getTime() - new Date(targetRow.utcDateTime).getTime()) <= CANONICAL_MATCH_TOLERANCE.timeMs;
-          if (latOk && lonOk && timeOk) return obs;
+          var altOk = Math.abs(obs.sun.altitudeGeometricDeg - Number(targetRow.stellariumAltitudeGeometricDeg)) <= CANONICAL_MATCH_TOLERANCE.altitudeDeg;
+          if (latOk && lonOk && timeOk && altOk) return obs;
           if (remaining <= 0) {
+            // Distinguish the two failure modes: Stellarium accepted the
+            // write and only its Sun is behind (recoverable, still
+            // connected), versus it never took the location/time at all.
+            if (latOk && lonOk && timeOk) {
+              var staleErr = new Error('Stellarium applied the requested location/time but its Sun position is still stale');
+              staleErr.staleSun = true;
+              throw staleErr;
+            }
             throw new Error('Stellarium did not converge to the requested condition within the retry budget');
           }
           return new Promise(function (resolve) {
@@ -357,6 +404,17 @@
       }).catch(function (err) {
         if (myGeneration !== requestGeneration) return;
         var detail = err && err.message ? err.message : String(err);
+        // Phase 10E-B: Stellarium is reachable and took the location/time
+        // write - only its Sun is behind. Dropping to connection 'error' /
+        // 'Stellarium unavailable' here would be untrue and would throw the
+        // user out of live mode. Publish the real live state instead; it
+        // labels itself CUSTOM through the existing matchCanonicalCondition()
+        // path, which already refuses to claim the requested condition, and
+        // carries the specific stale-Sun notice.
+        if (err && err.staleSun) {
+          logError('stellarium-stale-sun', detail);
+          return sync({ unconfirmedConditionId: canonicalRow.conditionId });
+        }
         logError('stellarium-set', detail);
         setState({
           connection: 'error',
@@ -547,8 +605,16 @@
         sourceValueEl.textContent = 'Live Stellarium';
         connectButton.textContent = 'Sync Stellarium';
         connectButton.disabled = false;
-        messageEl.textContent = 'Stellarium connected';
-        messageEl.classList.remove('data-error');
+        // Phase 10E-B: still connected and still live, but the requested
+        // condition was not confirmed because Stellarium's Sun had not
+        // refreshed - say exactly that instead of 'Stellarium connected'.
+        if (liveState.error && liveState.error.kind === 'stellarium-stale-sun') {
+          messageEl.textContent = liveState.error.message;
+          messageEl.classList.add('data-error');
+        } else {
+          messageEl.textContent = 'Stellarium connected';
+          messageEl.classList.remove('data-error');
+        }
         if (provenanceEl) provenanceEl.textContent = 'Live Stellarium';
         renderLiveSpectrumChart(liveState);
         renderLiveExperimentDetail(liveState);
