@@ -62,7 +62,10 @@
   // 'Stellarium unavailable' - the API is connected and the write succeeded;
   // only Stellarium's own render-frame-tied astronomical state is behind
   // (reports/validation/phase10e-a-hosted-live-state-investigation.md).
-  var STALE_SUN_MESSAGE = 'Stellarium connected \u2014 Sun position not refreshed yet; bring the Stellarium window to the foreground and reselect the condition';
+  // Phase 10I: Stellarium keeps rendering with the browser in front; it stops
+  // when it is not on screen at all (on macOS: fullscreen puts it on another
+  // desktop/Space) - reports/validation/phase10i-hosted-alt-click-failure.md.
+  var STALE_SUN_MESSAGE = 'Stellarium connected \u2014 Sun position not refreshing; keep Stellarium windowed on the same desktop as Solarchem, then reselect the condition';
 
   // Phase 10F — Live ALT daily altitude solver (see solveLiveAltitudeTarget()).
   // Coarse scan step across the live local day (25 samples: 00:00 ... 23:00,
@@ -74,7 +77,8 @@
   // Stellarium 26.2). Paused, a frame is a pure function of the written time,
   // and a Sun reading after a time change is accepted only once its
   // (altitude, azimuth) pair differs from the previous accepted pair; Stellarium recomputes the Sun on a render frame (measured
-  // 64-69 ms in the foreground, never while backgrounded - Phase 10E-A), so
+  // 64-69 ms while rendering; never while it is off screen, e.g. on another
+  // macOS desktop/Space - Phase 10E-A/10I), so
   // 30 polls x 50 ms is ~20 frames of headroom before declaring it stale.
   var LIVE_SOLVER_COARSE_STEP_S = 3600;
   var LIVE_SOLVER_LAST_SECOND_OF_DAY = 86399;
@@ -446,6 +450,10 @@
       // (altitude AND azimuth - Phase 9H-C/10E-A). Two genuinely different
       // times can share an altitude (either side of transit), but not an
       // azimuth, so freshness is judged on the pair, never on altitude alone.
+      // Each accepted pair also keeps the Stellarium UTC instant it was read
+      // at (Phase 10I): a write of the instant Stellarium is ALREADY at (the
+      // first coarse sample, 00:00:00, when the live time is local midnight)
+      // legitimately returns the same pair, which is not a stale frame.
       var lastAccepted = null;
       var physicalSec = null;
       var restoreSafe = true;
@@ -481,12 +489,12 @@
             altitudeM: obs.location.altitudeM,
             timeRate: time.timerate
           };
-          lastAccepted = { alt: obs.sun.altitudeGeometricDeg, az: obs.sun.azimuthDeg };
+          lastAccepted = pairOf(obs);
         });
       }
 
       function pairOf(obs) {
-        return { alt: obs.sun.altitudeGeometricDeg, az: obs.sun.azimuthDeg };
+        return { alt: obs.sun.altitudeGeometricDeg, az: obs.sun.azimuthDeg, utcMs: new Date(obs.time.utcIso).getTime() };
       }
 
       function samePair(a, b) {
@@ -549,7 +557,10 @@
           }
           var timeOk = Math.abs(new Date(obs.time.utcIso).getTime() - (ctx.dayStartUtcMs + sec * 1000)) <= CANONICAL_MATCH_TOLERANCE.timeMs;
           var pair = pairOf(obs);
-          if (timeOk && !samePair(pair, lastAccepted)) {
+          // Same instant (<= 1 ms: Stellarium's JD round trip) -> the Sun cannot
+          // have moved, so an identical pair is the correct reading, not stale.
+          var sameInstant = Math.abs(pair.utcMs - lastAccepted.utcMs) <= 1;
+          if (timeOk && (sameInstant || !samePair(pair, lastAccepted))) {
             lastAccepted = pair;
             cache[sec] = pair.alt;
             return pair.alt;
@@ -811,6 +822,7 @@
     document.querySelectorAll('[data-live-kabs]').forEach(function (el) {
       kAbsEls[el.getAttribute('data-live-kabs')] = el;
     });
+    var altitudeButtonEls = document.querySelectorAll('.altitude-index [data-condition-id]');
 
     if (!statusEl || !connectButton || !sourceValueEl || !messageEl) {
       return; // required hooks missing — stay silently in canonical mode
@@ -836,6 +848,12 @@
     // notification came from our own canonical restore" from "this
     // notification is a genuine ALT-button click".
     var isRestoringCanonicalSpectrum = false;
+    // Phase 10I: the Live ALT request whose Stellarium search is still running
+    // ({ conditionId }), or null. A real hosted click looked dead because the
+    // render() below clears the unconfirmed aria-pressed at once and the
+    // search takes seconds; render() marks this button aria-busy (never
+    // aria-pressed) and says what is being searched until the solve settles.
+    var pendingLiveAltitude = null;
     if (global.SolarChemUIShell && typeof global.SolarChemUIShell.onConditionChange === 'function') {
       // Phase 9H-D fix: a real Windows E2E run found that clicking an
       // Ephemeris row (a read-only reference/comparison table) while live
@@ -856,7 +874,14 @@
       global.SolarChemUIShell.onConditionChange(function (condition, options) {
         if (isRestoringCanonicalSpectrum) return;
         if (options && options.allowStellariumSync) {
-          live.syncToCondition(condition);
+          var request = live.getState().mode === 'live' ? { conditionId: condition.conditionId } : null;
+          if (request) pendingLiveAltitude = request;
+          live.syncToCondition(condition).then(function () {
+            if (request && pendingLiveAltitude === request) {
+              pendingLiveAltitude = null;
+              render(live.getState());
+            }
+          });
           // Phase 10F: ui-shell.js's selectCondition() has just painted the
           // clicked frozen Incheon row and pressed its button. While live,
           // put the user's real live state back on screen at once, so no
@@ -937,6 +962,25 @@
       }
     }
 
+    function renderLiveAltitudePending(liveState) {
+      // Returning to Reference, or a Connect/Sync ('connecting' - a live solve's
+      // own re-read never passes through it), supersedes the running search.
+      if (liveState.mode !== 'live' || liveState.connection === 'connecting') pendingLiveAltitude = null;
+      var pending = liveState.mode === 'live' && liveState.connection === 'connected' ? pendingLiveAltitude : null;
+      Array.prototype.forEach.call(altitudeButtonEls, function (btn) {
+        if (pending && btn.getAttribute('data-condition-id') === pending.conditionId) {
+          btn.setAttribute('aria-busy', 'true');
+        } else {
+          btn.removeAttribute('aria-busy');
+        }
+      });
+      if (pending) {
+        var m = /^ALT(\d{3})$/.exec(pending.conditionId);
+        messageEl.textContent = 'Searching Stellarium for ' + (m ? 'Sun altitude ' + Number(m[1]) + '°' : 'the daily maximum Sun altitude') + '\u2026';
+        messageEl.classList.remove('data-error');
+      }
+    }
+
     function render(liveState) {
       statusEl.setAttribute('data-live-status', liveState.mode);
       if (returnButton) returnButton.hidden = liveState.mode !== 'live';
@@ -1007,6 +1051,7 @@
       }
 
       updateLiveAltitudeGuide(liveState);
+      renderLiveAltitudePending(liveState);
     }
 
     live.subscribe(render);

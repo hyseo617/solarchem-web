@@ -923,6 +923,15 @@ h2.section__title {
   border-bottom-color: var(--color-ink);
 }
 
+/* Phase 10I: Live ALT request still searching Stellarium - acknowledged,
+   not confirmed (no bold weight; dashed rule until the solve settles). */
+.altitude-option[aria-busy="true"] {
+  color: var(--color-ink);
+  border-bottom-style: dashed;
+  border-bottom-color: var(--color-ink);
+  cursor: progress;
+}
+
 .altitude-option--max {
   letter-spacing: 0.06em;
 }
