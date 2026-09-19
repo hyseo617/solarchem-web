@@ -422,6 +422,36 @@ sub, sup {
   text-decoration: underline;
 }
 
+/* Phase 10L — Live Ephemeris rows: same read-only highlight as the reference
+   rows; a "Not reached" row keeps its condition ID but mutes its cells. */
+.ephemeris-drawer__table tbody tr[data-live-ephemeris-row] {
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.ephemeris-drawer__table tbody tr[data-live-ephemeris-row]:hover,
+.ephemeris-drawer__table tbody tr[data-live-ephemeris-row][aria-selected="true"] {
+  background: var(--color-canvas-raised);
+}
+
+.ephemeris-drawer__table tbody tr[data-live-ephemeris-row]:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: -2px;
+}
+
+.ephemeris-drawer__table tbody tr[data-live-ephemeris-row][aria-selected="true"] th[scope="row"] {
+  text-decoration: underline;
+}
+
+.ephemeris-drawer__table tbody tr[data-live-ephemeris-status]:not([data-live-ephemeris-status="reached"]) td {
+  color: var(--color-gray);
+}
+
+.ephemeris-drawer__status {
+  font-size: var(--text-small);
+  color: var(--color-ink-soft);
+}
+
 .ephemeris-drawer__footer {
   display: flex;
   align-items: center;

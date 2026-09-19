@@ -66,6 +66,8 @@
   // when it is not on screen at all (on macOS: fullscreen puts it on another
   // desktop/Space) - reports/validation/phase10i-hosted-alt-click-failure.md.
   var STALE_SUN_MESSAGE = 'Stellarium connected \u2014 Sun position not refreshing; keep Stellarium windowed on the same desktop as Solarchem, then reselect the condition';
+  // Phase 10L: the same confirmed guidance for a Live Ephemeris generation.
+  var EPHEMERIS_STALE_SUN_MESSAGE = 'Stellarium connected \u2014 Sun position not refreshing; keep Stellarium windowed on the same desktop as Solarchem, then reopen the ephemeris';
 
   // Phase 10F — Live ALT daily altitude solver (see solveLiveAltitudeTarget()).
   // Coarse scan step across the live local day (25 samples: 00:00 ... 23:00,
@@ -311,6 +313,11 @@
     //     location/date while this re-read runs.
     function sync(options) {
       options = options || {};
+      // Phase 10L: a Connect/Sync during a Live Ephemeris generation runs once
+      // that generation has put Stellarium's original time and rate back.
+      if (activeLiveEphemeris && !options.fromLiveSolve) {
+        return settled(activeLiveEphemeris).then(function () { return sync(options); });
+      }
       var myGeneration = ++requestGeneration;
       if (!options.fromLiveSolve) {
         setState({ connection: 'connecting', error: null });
@@ -442,10 +449,19 @@
       return err;
     }
 
-    function solveLiveAltitudeTarget(canonicalRow, myGeneration) {
-      var target = liveTargetFromConditionId(canonicalRow && canonicalRow.conditionId);
+    // Phase 10L: the Stellarium day-search primitives, shared by the Live ALT
+    // solver (solveLiveAltitudeTarget, below - behavior unchanged from Phase
+    // 10F/10I) and the Live Ephemeris (generateLiveEphemeris). `owner` is who
+    // holds the clock pause: a requestGeneration number for a Live ALT solve, a
+    // token object for an ephemeris run. checkCancelled() throws when that owner
+    // was superseded or cancelled.
+    function openDaySearch(owner, checkCancelled) {
       var ctx = null;
       var cache = {};
+      // Phase 10L: the full Stellarium reading behind each cached altitude
+      // (observation + status.time.local/timeZone), so an ephemeris row is
+      // built from the very reading that located it - never recomputed.
+      var readings = {};
       // A stale Stellarium frame repeats the previous Sun object byte-for-byte
       // (altitude AND azimuth - Phase 9H-C/10E-A). Two genuinely different
       // times can share an altitude (either side of transit), but not an
@@ -457,18 +473,38 @@
       var lastAccepted = null;
       var physicalSec = null;
       var restoreSafe = true;
+      var counts = { timeWrites: 0, rateWrites: 0, reads: 0 };
 
       function checkSuperseded() {
-        if (myGeneration !== requestGeneration) throw liveSolverError('superseded', 'superseded by a newer request', { superseded: true });
+        checkCancelled();
       }
 
       function delay(ms) {
         return new Promise(function (resolve) { setTimeout(resolve, ms); });
       }
 
+      function read() {
+        counts.reads += 1;
+        return api.getObservationConditions();
+      }
+
+      function writeTime(sec) {
+        counts.timeWrites += 1;
+        return api.setDateTime(ctx.date, secondOfDayToTime(sec), ctx.offsetLabel);
+      }
+
+      function writeRate(rate) {
+        counts.rateWrites += 1;
+        return api.setTimeRate(rate);
+      }
+
+      function statusOf(result) {
+        return result && result.diagnostics && result.diagnostics.raw ? result.diagnostics.raw.status : null;
+      }
+
       function readOriginal() {
-        return api.getObservationConditions().then(function (result) {
-          var status = result && result.diagnostics && result.diagnostics.raw ? result.diagnostics.raw.status : null;
+        return read().then(function (result) {
+          var status = statusOf(result);
           var time = status && status.time;
           var m = time && typeof time.local === 'string' ? /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(time.local) : null;
           if (!m || typeof time.gmtShift !== 'number' || !isFinite(time.gmtShift)) {
@@ -479,14 +515,19 @@
           }
           var offsetMinutes = Math.round(time.gmtShift * 1440);
           var obs = result.observation;
+          var display = extractLocationDisplay(result);
           ctx = {
             date: m[1] + '-' + m[2] + '-' + m[3],
             originalSec: Number(m[4]) * 3600 + Number(m[5]) * 60 + Number(m[6]),
+            originalLocal: time.local,
+            gmtShift: time.gmtShift,
             offsetLabel: formatUtcOffsetLabel(offsetMinutes),
             dayStartUtcMs: Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) - offsetMinutes * 60000,
             latitudeDeg: obs.location.latitudeDeg,
             longitudeDeg: obs.location.longitudeDeg,
             altitudeM: obs.location.altitudeM,
+            locationName: display.name,
+            timeZone: display.timeZone,
             timeRate: time.timerate
           };
           lastAccepted = pairOf(obs);
@@ -501,12 +542,18 @@
         return a.alt === b.alt && a.az === b.az;
       }
 
+      function locationChanged(obs) {
+        return Math.abs(obs.location.latitudeDeg - ctx.latitudeDeg) > CANONICAL_MATCH_TOLERANCE.locationDeg ||
+          Math.abs(obs.location.longitudeDeg - ctx.longitudeDeg) > CANONICAL_MATCH_TOLERANCE.locationDeg ||
+          obs.location.altitudeM !== ctx.altitudeM;
+      }
+
       // After pausing, Stellarium may still render one last frame (measured:
       // exactly one Sun change right after timerate=0). The baseline for the
       // freshness rule is taken only once two consecutive reads agree.
       function settleBaseline(prev, attemptsLeft) {
         checkSuperseded();
-        return api.getObservationConditions().then(function (result) {
+        return read().then(function (result) {
           checkSuperseded();
           var pair = pairOf(result.observation);
           if (prev && samePair(prev, pair)) {
@@ -524,8 +571,8 @@
         checkSuperseded();
         if (typeof api.setTimeRate !== 'function') throw liveSolverError('failed', 'Stellarium clock-rate control is unavailable');
         if (pausedTimeRate === null) pausedTimeRate = ctx.timeRate;
-        pauseOwnerGeneration = myGeneration;
-        return api.setTimeRate(0).then(function (res) {
+        pauseOwnerGeneration = owner;
+        return writeRate(0).then(function (res) {
           if (!res || !res.ok) throw liveSolverError('failed', 'Stellarium did not confirm pausing its clock');
           return settleBaseline(null, LIVE_SOLVER_FRESH_POLL_MAX_ATTEMPTS);
         });
@@ -533,11 +580,11 @@
 
       // Resolves to null, or to a note if the original rate could not be put back.
       function restoreClockRate() {
-        if (pauseOwnerGeneration !== myGeneration || pausedTimeRate === null) return Promise.resolve(null);
+        if (pauseOwnerGeneration !== owner || pausedTimeRate === null) return Promise.resolve(null);
         var rate = pausedTimeRate;
         pausedTimeRate = null;
         pauseOwnerGeneration = null;
-        return Promise.resolve().then(function () { return api.setTimeRate(rate); }).then(function () {
+        return Promise.resolve().then(function () { return writeRate(rate); }).then(function () {
           return null;
         }, function (e) {
           return 'the original clock rate could not be restored: ' + (e && e.message ? e.message : String(e));
@@ -546,12 +593,10 @@
 
       function pollFresh(sec, attemptsLeft) {
         checkSuperseded();
-        return api.getObservationConditions().then(function (result) {
+        return read().then(function (result) {
           checkSuperseded();
           var obs = result.observation;
-          if (Math.abs(obs.location.latitudeDeg - ctx.latitudeDeg) > CANONICAL_MATCH_TOLERANCE.locationDeg ||
-              Math.abs(obs.location.longitudeDeg - ctx.longitudeDeg) > CANONICAL_MATCH_TOLERANCE.locationDeg ||
-              obs.location.altitudeM !== ctx.altitudeM) {
+          if (locationChanged(obs)) {
             restoreSafe = false;
             throw liveSolverError('failed', 'the Stellarium observer location changed during the search');
           }
@@ -563,6 +608,8 @@
           if (timeOk && (sameInstant || !samePair(pair, lastAccepted))) {
             lastAccepted = pair;
             cache[sec] = pair.alt;
+            var display = extractLocationDisplay(result);
+            readings[sec] = { observation: obs, local: display.local, timeZone: display.timeZone };
             return pair.alt;
           }
           if (attemptsLeft <= 1) {
@@ -579,7 +626,7 @@
       function moveTo(sec) {
         checkSuperseded();
         if (physicalSec === sec && cache.hasOwnProperty(sec)) return Promise.resolve(cache[sec]);
-        return api.setDateTime(ctx.date, secondOfDayToTime(sec), ctx.offsetLabel).then(function (res) {
+        return writeTime(sec).then(function (res) {
           if (!res || !res.ok) throw liveSolverError('failed', 'Stellarium did not confirm the time change');
           physicalSec = sec;
           return pollFresh(sec, LIVE_SOLVER_FRESH_POLL_MAX_ATTEMPTS);
@@ -590,17 +637,15 @@
         return cache.hasOwnProperty(sec) ? Promise.resolve(cache[sec]) : moveTo(sec);
       }
 
-      function sequence(items, fn) {
-        return items.reduce(function (p, item) {
-          return p.then(function (acc) { return fn(item).then(function (v) { acc.push(v); return acc; }); });
-        }, Promise.resolve([]));
-      }
-
       function coarseSeconds() {
         var secs = [];
         for (var sec = 0; sec < 86400; sec += LIVE_SOLVER_COARSE_STEP_S) secs.push(sec);
         secs.push(LIVE_SOLVER_LAST_SECOND_OF_DAY);
         return secs;
+      }
+
+      function scanDay(coarse) {
+        return sequence(coarse, moveTo);
       }
 
       function findMaximum(coarse, alts) {
@@ -641,23 +686,122 @@
         });
       }
 
+      // [lo, hi] (f(lo) and f(hi) on opposite sides of targetDeg) narrowed to
+      // a 1 s bracket; the endpoint closer to targetDeg is kept and must lie
+      // within CANONICAL_MATCH_TOLERANCE.altitudeDeg.
+      function closerEndpoint(lo, hi, targetDeg) {
+        return Promise.all([altitudeAt(lo), altitudeAt(hi)]).then(function () {
+          var best = Math.abs(cache[lo] - targetDeg) <= Math.abs(cache[hi] - targetDeg) ? lo : hi;
+          if (Math.abs(cache[best] - targetDeg) > CANONICAL_MATCH_TOLERANCE.altitudeDeg) {
+            throw liveSolverError('failed', 'the crossing could not be refined to within ' + CANONICAL_MATCH_TOLERANCE.altitudeDeg + ' deg at 1 s resolution');
+          }
+          return best;
+        });
+      }
+
       // Bisects [lo, hi] (f(lo) and f(hi) on opposite sides of 0) to a 1 s bracket.
       function bisect(lo, hi, loIsBelow, targetDeg) {
-        if (hi - lo <= 1) {
-          return Promise.all([altitudeAt(lo), altitudeAt(hi)]).then(function () {
-            var best = Math.abs(cache[lo] - targetDeg) <= Math.abs(cache[hi] - targetDeg) ? lo : hi;
-            if (Math.abs(cache[best] - targetDeg) > CANONICAL_MATCH_TOLERANCE.altitudeDeg) {
-              throw liveSolverError('failed', 'the crossing could not be refined to within ' + CANONICAL_MATCH_TOLERANCE.altitudeDeg + ' deg at 1 s resolution');
-            }
-            return best;
-          });
-        }
+        if (hi - lo <= 1) return closerEndpoint(lo, hi, targetDeg);
         var mid = Math.floor((lo + hi) / 2);
         return altitudeAt(mid).then(function (alt) {
           var midBelow = alt < targetDeg;
           return midBelow === loIsBelow ? bisect(mid, hi, loIsBelow, targetDeg) : bisect(lo, mid, loIsBelow, targetDeg);
         });
       }
+
+      // Phase 10L. Same 1 s bracket as bisect() on a rising bracket
+      // (f(lo) < T <= f(hi)) - on a monotonic branch that bracket is unique, so
+      // the chosen second is identical to the Live ALT button's - but reached in
+      // far fewer Stellarium time writes: each candidate is the secant estimate
+      // through the two latest readings, nudged one second inside the bracket
+      // when it lands on an endpoint, and replaced by the midpoint whenever two
+      // steps failed to halve the bracket (so it is never slower than ~2x
+      // bisection).
+      function refineRising(lo, hi, targetDeg) {
+        var prev = lo;
+        var cur = hi;
+        var widths = [hi - lo];
+
+        function step() {
+          if (hi - lo <= 1) return closerEndpoint(lo, hi, targetDeg);
+          var s;
+          var w = widths.length;
+          var stalled = w >= 3 && widths[w - 1] > widths[w - 3] / 2;
+          var denom = cache[cur] - cache[prev];
+          if (!stalled && denom !== 0 && isFinite(denom)) {
+            s = Math.round(cur - (cache[cur] - targetDeg) * (cur - prev) / denom);
+            if (!(s > lo)) s = lo + 1;
+            if (!(s < hi)) s = hi - 1;
+          } else {
+            s = Math.floor((lo + hi) / 2);
+          }
+          return altitudeAt(s).then(function (alt) {
+            if (alt < targetDeg) lo = s; else hi = s;
+            prev = cur;
+            cur = s;
+            widths.push(hi - lo);
+            return step();
+          });
+        }
+
+        return step();
+      }
+
+      // Time-only undo of the search: original second of the original local
+      // date, then the original clock rate. Resolves to a note or null.
+      function restoreOriginalTime() {
+        return Promise.resolve().then(function () {
+          return writeTime(ctx.originalSec);
+        }).then(function () { return null; }, function (e) {
+          return 'the original time could not be restored: ' + (e && e.message ? e.message : String(e));
+        });
+      }
+
+      function restoreAfterFailure(err) {
+        var timeStep = ctx && restoreSafe && !err.superseded ? restoreOriginalTime() : Promise.resolve(null);
+        return timeStep.then(function (timeNote) {
+          return restoreClockRate().then(function (rateNote) {
+            var notes = [timeNote, rateNote].filter(Boolean);
+            if (notes.length) err.message += ' (' + notes.join('; ') + ')';
+            throw err;
+          });
+        });
+      }
+
+      return {
+        ctx: function () { return ctx; },
+        cache: cache,
+        readings: readings,
+        counts: counts,
+        read: read,
+        statusOf: statusOf,
+        locationChanged: locationChanged,
+        readOriginal: readOriginal,
+        pauseClock: pauseClock,
+        restoreClockRate: restoreClockRate,
+        restoreOriginalTime: restoreOriginalTime,
+        restoreAfterFailure: restoreAfterFailure,
+        moveTo: moveTo,
+        coarseSeconds: coarseSeconds,
+        scanDay: scanDay,
+        findMaximum: findMaximum,
+        bisect: bisect,
+        refineRising: refineRising
+      };
+    }
+
+    function sequence(items, fn) {
+      return items.reduce(function (p, item) {
+        return p.then(function (acc) { return fn(item).then(function (v) { acc.push(v); return acc; }); });
+      }, Promise.resolve([]));
+    }
+
+    function solveLiveAltitudeTarget(canonicalRow, myGeneration) {
+      var target = liveTargetFromConditionId(canonicalRow && canonicalRow.conditionId);
+      var search = openDaySearch(myGeneration, function () {
+        if (myGeneration !== requestGeneration) throw liveSolverError('superseded', 'superseded by a newer request', { superseded: true });
+      });
+      var cache = search.cache;
 
       function findCrossings(coarse, max, targetDeg) {
         var rising = coarse.filter(function (sec) { return sec < max.sec; }).concat([max.sec]);
@@ -675,35 +819,18 @@
             break;
           }
         }
-        return sequence(jobs, function (job) { return bisect(job[0], job[1], job[2], targetDeg); });
-      }
-
-      function restoreAfterFailure(err) {
-        var timeStep = ctx && restoreSafe && !err.superseded
-          ? Promise.resolve().then(function () {
-            return api.setDateTime(ctx.date, secondOfDayToTime(ctx.originalSec), ctx.offsetLabel);
-          }).then(function () { return null; }, function (e) {
-            return 'the original time could not be restored: ' + (e && e.message ? e.message : String(e));
-          })
-          : Promise.resolve(null);
-        return timeStep.then(function (timeNote) {
-          return restoreClockRate().then(function (rateNote) {
-            var notes = [timeNote, rateNote].filter(Boolean);
-            if (notes.length) err.message += ' (' + notes.join('; ') + ')';
-            throw err;
-          });
-        });
+        return sequence(jobs, function (job) { return search.bisect(job[0], job[1], job[2], targetDeg); });
       }
 
       if (!target) {
         return Promise.reject(liveSolverError('failed', 'unsupported live altitude control ' + (canonicalRow && canonicalRow.conditionId)));
       }
 
-      var coarse = coarseSeconds();
-      return readOriginal().then(pauseClock).then(function () {
-        return sequence(coarse, moveTo);
+      var coarse = search.coarseSeconds();
+      return search.readOriginal().then(search.pauseClock).then(function () {
+        return search.scanDay(coarse);
       }).then(function (alts) {
-        return findMaximum(coarse, alts);
+        return search.findMaximum(coarse, alts);
       }).then(function (max) {
         if (target.kind === 'max') return { sec: max.sec, altitudeDeg: max.altitudeDeg };
         var tol = CANONICAL_MATCH_TOLERANCE.altitudeDeg;
@@ -715,24 +842,177 @@
           if (secs.length === 0) {
             throw liveSolverError('unreachable', target.altitudeDeg + '° is not reached at this location on this date.');
           }
+          var originalSec = search.ctx().originalSec;
           secs.sort(function (x, y) {
-            var dx = Math.abs(x - ctx.originalSec);
-            var dy = Math.abs(y - ctx.originalSec);
+            var dx = Math.abs(x - originalSec);
+            var dy = Math.abs(y - originalSec);
             return dx !== dy ? dx - dy : x - y;
           });
           return { sec: secs[0], altitudeDeg: target.altitudeDeg };
         });
       }).then(function (chosen) {
-        return moveTo(chosen.sec).then(function (alt) {
+        return search.moveTo(chosen.sec).then(function (alt) {
           if (Math.abs(alt - chosen.altitudeDeg) > CANONICAL_MATCH_TOLERANCE.altitudeDeg) {
             throw liveSolverError('stale-sun', 'Stellarium\'s Sun at the chosen time does not match the target');
           }
-          return restoreClockRate().then(function (rateNote) {
+          return search.restoreClockRate().then(function (rateNote) {
             if (rateNote) throw liveSolverError('failed', rateNote);
             return { conditionId: target.conditionId, altitudeDeg: chosen.altitudeDeg };
           });
         });
-      }).catch(restoreAfterFailure);
+      }).catch(search.restoreAfterFailure);
+    }
+
+    // ---------------------------------------------------------------
+    // Phase 10L — Live Ephemeris: the 13-row ALT010..ALT065 + ALTMAX table for
+    // the CURRENT live observer and live local date, from ONE bounded
+    // Stellarium day scan (the Phase 10F primitives above). Every value in a
+    // row is Stellarium's own reading at that second; Solarchem computes none,
+    // and no frozen Incheon/JPL value is used.
+    //
+    //   1. Read the original live state (date, second, offset, rate, observer).
+    //   2. Pause the clock; coarse scan 00:00 ... 23:00, 23:59:59 (25 writes).
+    //   3. Daily maximum: golden-section search (~18 writes) -> ALTMAX.
+    //   4. ALT010..ALT065, ascending order: the ASCENDING (morning) crossing,
+    //      i.e. the last coarse step before the maximum going from < T to >= T,
+    //      refined to its unique 1 s bracket (refineRising). This matches the
+    //      frozen reference table, which is the ascending sequence toward
+    //      ALTMAX; it deliberately ignores the "nearest to the current time"
+    //      rule of the Live ALT buttons. A daily maximum within 0.01 deg of T
+    //      counts as reaching it (same rule as the buttons); a maximum below
+    //      T - 0.01 deg is "not-reached"; a target already exceeded from local
+    //      midnight has no ascending crossing that day ("no-ascending-crossing").
+    //   5. Write the original second back, then the original rate, and confirm
+    //      with one read that the observer, date and UTC offset are unchanged.
+    //      Every failure path restores time and rate too.
+    // The live state object is never touched, so no scan time can reach the
+    // Experiment section. Live ALT solves and Connect/Sync wait for a running
+    // generation (and it waits for a running ALT solve), so two searches never
+    // share Stellarium's clock. Returning to Reference cancels it.
+    // ---------------------------------------------------------------
+
+    var LIVE_EPHEMERIS_TARGETS = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65];
+
+    function liveEphemerisRow(search, conditionId, targetDeg, sec, status) {
+      var reading = sec === null ? null : search.readings[sec];
+      var obs = reading && reading.observation;
+      return {
+        conditionId: conditionId,
+        status: status,
+        targetDeg: targetDeg,
+        secondOfDay: reading ? sec : null,
+        local: reading ? reading.local : null,
+        timeZone: reading ? reading.timeZone : null,
+        utcIso: obs ? obs.time.utcIso : null,
+        altitudeGeometricDeg: obs ? obs.sun.altitudeGeometricDeg : null,
+        azimuthDeg: obs ? obs.sun.azimuthDeg : null,
+        distanceAu: obs ? obs.sun.distanceAu : null
+      };
+    }
+
+    function runLiveEphemeris(token) {
+      var startedAt = Date.now();
+      var search = openDaySearch(token, function () {
+        if (token.cancelled) throw liveSolverError('cancelled', 'live ephemeris generation was cancelled');
+      });
+      var cache = search.cache;
+      var coarse = search.coarseSeconds();
+      var tol = CANONICAL_MATCH_TOLERANCE.altitudeDeg;
+      var max = null;
+      var rows = [];
+
+      function risingBracket(targetDeg) {
+        var rising = coarse.filter(function (sec) { return sec < max.sec; }).concat([max.sec]);
+        for (var i = rising.length - 2; i >= 0; i -= 1) {
+          if (cache[rising[i]] < targetDeg && cache[rising[i + 1]] >= targetDeg) return [rising[i], rising[i + 1]];
+        }
+        return null;
+      }
+
+      function solveTarget(targetDeg) {
+        var id = 'ALT' + (targetDeg < 100 ? '0' : '') + targetDeg;
+        if (max.altitudeDeg < targetDeg - tol) return Promise.resolve(liveEphemerisRow(search, id, targetDeg, null, 'not-reached'));
+        var bracket = risingBracket(targetDeg);
+        if (!bracket) {
+          if (Math.abs(max.altitudeDeg - targetDeg) <= tol) return Promise.resolve(liveEphemerisRow(search, id, targetDeg, max.sec, 'reached'));
+          return Promise.resolve(liveEphemerisRow(search, id, targetDeg, null, 'no-ascending-crossing'));
+        }
+        return search.refineRising(bracket[0], bracket[1], targetDeg).then(function (sec) {
+          return liveEphemerisRow(search, id, targetDeg, sec, 'reached');
+        });
+      }
+
+      return search.readOriginal().then(search.pauseClock).then(function () {
+        return search.scanDay(coarse);
+      }).then(function (alts) {
+        return search.findMaximum(coarse, alts);
+      }).then(function (found) {
+        max = found;
+        return sequence(LIVE_EPHEMERIS_TARGETS, solveTarget);
+      }).then(function (solved) {
+        rows = solved.concat([liveEphemerisRow(search, 'ALTMAX', null, max.sec, 'reached')]);
+        return search.restoreOriginalTime();
+      }).then(function (timeNote) {
+        if (timeNote) throw liveSolverError('failed', timeNote);
+        return search.restoreClockRate();
+      }).then(function (rateNote) {
+        if (rateNote) throw liveSolverError('failed', rateNote);
+        return search.read();
+      }).then(function (after) {
+        var ctx = search.ctx();
+        var status = search.statusOf(after);
+        var time = status && status.time;
+        if (search.locationChanged(after.observation) || !time || typeof time.local !== 'string' ||
+            time.local.slice(0, 10) !== ctx.date || time.gmtShift !== ctx.gmtShift) {
+          throw liveSolverError('failed', 'Stellarium\'s observer, date or timezone did not match the original after restoring it');
+        }
+        return {
+          source: 'live-stellarium',
+          localDate: ctx.date,
+          latitudeDeg: ctx.latitudeDeg,
+          longitudeDeg: ctx.longitudeDeg,
+          altitudeM: ctx.altitudeM,
+          locationName: ctx.locationName,
+          timeZone: ctx.timeZone,
+          utcOffsetLabel: ctx.offsetLabel,
+          originalLocal: ctx.originalLocal,
+          originalTimeRate: ctx.timeRate,
+          restored: { local: time.local, timeRate: time.timerate },
+          dailyMaximum: { secondOfDay: max.sec, altitudeDeg: max.altitudeDeg },
+          rows: rows,
+          requests: { timeWrites: search.counts.timeWrites, rateWrites: search.counts.rateWrites, reads: search.counts.reads },
+          elapsedMs: Date.now() - startedAt
+        };
+      }).catch(search.restoreAfterFailure);
+    }
+
+    var activeLiveSolve = null;
+    var activeLiveEphemeris = null;
+    var liveEphemerisToken = null;
+
+    function settled(p) {
+      return p.then(function () {}, function () {});
+    }
+
+    function generateLiveEphemeris() {
+      if (activeLiveEphemeris) return activeLiveEphemeris;
+      if (state.mode !== 'live' || state.connection !== 'connected') {
+        return Promise.reject(liveSolverError('not-live', 'Live Stellarium is not connected'));
+      }
+      var token = { cancelled: false };
+      liveEphemerisToken = token;
+      var before = activeLiveSolve ? settled(activeLiveSolve) : Promise.resolve();
+      var run = before.then(function () {
+        if (token.cancelled) throw liveSolverError('cancelled', 'live ephemeris generation was cancelled');
+        if (state.mode !== 'live') throw liveSolverError('not-live', 'Live Stellarium is not connected');
+        return runLiveEphemeris(token);
+      });
+      activeLiveEphemeris = run;
+      settled(run).then(function () {
+        if (activeLiveEphemeris === run) activeLiveEphemeris = null;
+        if (liveEphemerisToken === token) liveEphemerisToken = null;
+      });
+      return run;
     }
 
     // Called from ui-shell.js's existing onConditionChange subscription for
@@ -743,10 +1023,15 @@
     // setLocation() and never applies the canonical row's location/date.
     function syncToCondition(canonicalRow) {
       if (state.mode !== 'live') return Promise.resolve();
+      // Phase 10L: never search while a Live Ephemeris generation owns
+      // Stellarium's clock - its scan times are not the user's live time.
+      if (activeLiveEphemeris) {
+        return settled(activeLiveEphemeris).then(function () { return syncToCondition(canonicalRow); });
+      }
 
       var myGeneration = ++requestGeneration;
 
-      return solveLiveAltitudeTarget(canonicalRow, myGeneration).then(function (solved) {
+      var run = solveLiveAltitudeTarget(canonicalRow, myGeneration).then(function (solved) {
         if (myGeneration !== requestGeneration) return;
         return sync({ confirmedLiveTarget: solved, fromLiveSolve: true });
       }, function (err) {
@@ -763,6 +1048,11 @@
         }
         return sync({ notice: notice, fromLiveSolve: true });
       });
+      activeLiveSolve = run;
+      settled(run).then(function () {
+        if (activeLiveSolve === run) activeLiveSolve = null;
+      });
+      return run;
     }
 
     // Explicit return path to frozen canonical mode (docs §13). Invalidates
@@ -770,6 +1060,8 @@
     // re-enable live mode after the user opted out of it.
     function enterCanonicalMode() {
       requestGeneration += 1;
+      if (liveEphemerisToken) liveEphemerisToken.cancelled = true; // it still restores time and rate
+
       setState(Object.assign(initialState(), { connection: 'unknown' }));
     }
 
@@ -780,6 +1072,7 @@
     return {
       sync: sync,
       syncToCondition: syncToCondition,
+      generateLiveEphemeris: generateLiveEphemeris,
       enterCanonicalMode: enterCanonicalMode,
       subscribe: subscribe,
       getState: getState,
@@ -1052,7 +1345,63 @@
 
       updateLiveAltitudeGuide(liveState);
       renderLiveAltitudePending(liveState);
+      renderEphemerisSource(liveState);
     }
+
+    // Phase 10L — Live Ephemeris drawer. Reference mode keeps the frozen
+    // Phase 8A table; live mode never shows it. Opening the drawer while live
+    // is the explicit request to generate the table for the current live
+    // observer/date (live.generateLiveEphemeris(): time/timerate only, both
+    // restored; the live state and so the Experiment section are untouched).
+    var ephemerisTriggerEls = document.querySelectorAll('[data-drawer-trigger="ephemeris-drawer"]');
+    var ephemerisSource = null;
+    var ephemerisRun = 0;
+
+    function setEphemerisView(view) {
+      ephemerisSource = view.source;
+      if (global.SolarChemUIShell && typeof global.SolarChemUIShell.setEphemerisView === 'function') {
+        global.SolarChemUIShell.setEphemerisView(view);
+      }
+    }
+
+    function renderEphemerisSource(liveState) {
+      if (liveState.mode !== 'live') {
+        if (ephemerisSource !== 'reference') {
+          ephemerisRun += 1; // a late live result must not replace the reference table
+          setEphemerisView({ source: 'reference' });
+        }
+      } else if (liveState.connection === 'connected' && ephemerisSource !== 'live') {
+        setEphemerisView({ source: 'live', status: 'idle' });
+      }
+    }
+
+    function generateLiveEphemerisView() {
+      var run = ++ephemerisRun;
+      setEphemerisView({ source: 'live', status: 'generating' });
+      live.generateLiveEphemeris().then(function (result) {
+        if (run !== ephemerisRun || live.getState().mode !== 'live') return;
+        setEphemerisView({ source: 'live', status: 'ready', result: result });
+      }, function (err) {
+        if (run !== ephemerisRun || live.getState().mode !== 'live') return;
+        var kind = err && err.liveSolverKind;
+        if (kind === 'cancelled' || kind === 'not-live') return;
+        var detail = err && err.message ? err.message : String(err);
+        if (typeof console !== 'undefined' && console.error) console.error('[live-integration] live-ephemeris: ' + detail);
+        setEphemerisView({
+          source: 'live',
+          status: 'error',
+          message: kind === 'stale-sun' ? EPHEMERIS_STALE_SUN_MESSAGE : 'Live ephemeris failed: ' + detail
+        });
+      });
+    }
+
+    Array.prototype.forEach.call(ephemerisTriggerEls, function (trigger) {
+      trigger.addEventListener('click', function () {
+        if (trigger.getAttribute('aria-expanded') === 'true') return; // already open
+        var st = live.getState();
+        if (st.mode === 'live' && st.connection === 'connected') generateLiveEphemerisView();
+      });
+    });
 
     live.subscribe(render);
     render(live.getState());

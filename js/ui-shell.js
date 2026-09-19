@@ -181,6 +181,10 @@
       if (!isFinite(n)) return 'DATA UNAVAILABLE';
       return Math.abs(n).toFixed(4) + '° ' + (n >= 0 ? positiveSuffix : negativeSuffix);
     },
+    // Phase 10L: "51.5074° N, 0.1278° W" - a live observer's own coordinates.
+    latLonPair: function (latitudeDeg, longitudeDeg) {
+      return Format.latLon(latitudeDeg, 'N', 'S') + ', ' + Format.latLon(longitudeDeg, 'E', 'W');
+    },
     elevation: function (value) {
       var n = Number(value);
       return isFinite(n) ? n.toFixed(0) + ' m' : 'DATA UNAVAILABLE';
@@ -274,6 +278,12 @@
     var timezoneInput = document.querySelector('[data-frozen-field="timezone"]');
     var siteInput = document.querySelector('input[name="site"]');
     var SITE_FROZEN_TEXT = siteInput ? siteInput.value : '';
+    // Phase 10L: the bottom rail's site label was hard-coded "Incheon" in
+    // index.html and never updated, so a live London state showed
+    // "Incheon · <London UTC> · Sun <London altitude>". Live mode now shows the
+    // live observer's own coordinates (no geocoding); Reference restores this.
+    var miniSiteEl = document.querySelector('[data-mini-site]');
+    var MINI_SITE_FROZEN_TEXT = miniSiteEl ? miniSiteEl.textContent : '';
     var TIMEZONE_FROZEN_TEXT = timezoneInput ? timezoneInput.value : '';
 
     var conditionsById = {};
@@ -291,6 +301,7 @@
     restoreCanonicalSpectrumFn = function () {
       if (siteInput) siteInput.value = SITE_FROZEN_TEXT;
       if (timezoneInput) timezoneInput.value = TIMEZONE_FROZEN_TEXT;
+      if (miniSiteEl) miniSiteEl.textContent = MINI_SITE_FROZEN_TEXT;
       if (selectedConditionId && conditionsById[selectedConditionId]) {
         // renderFrozenContext() restores Latitude/Longitude/Elevation from
         // the canonical condition — live mode overwrites these three with
@@ -338,6 +349,7 @@
       setFieldValue(experimentFields.distance, Format.au(observation.sun.distanceAu), false);
       setFieldValue(miniFields['local-time'], Format.utc(observation.time.utcIso), false);
       setFieldValue(miniFields.altitude, Format.degrees(observation.sun.altitudeGeometricDeg), false);
+      if (miniSiteEl) miniSiteEl.textContent = Format.latLonPair(observation.location.latitudeDeg, observation.location.longitudeDeg);
     }
 
     window.SolarChemUIShell.renderLiveExperimentDetail = renderLiveExperimentDetail;
@@ -960,7 +972,124 @@
 
     backdrop.addEventListener('click', closeDrawer);
 
+    initLiveEphemerisView(drawer);
     initEphemerisCsvDownload(drawer);
+  }
+
+  // ---------------------------------------------------------------
+  // Phase 10L — Live Ephemeris view. js/live-integration.js generates the
+  // table from Stellarium (generateLiveEphemeris()) and hands it here through
+  // window.SolarChemUIShell.setEphemerisView(view); this only renders it.
+  //   { source: 'reference' }                 frozen Phase 8A table (unchanged)
+  //   { source: 'live', status: 'idle' }      live, nothing generated yet
+  //   { source: 'live', status: 'generating' }
+  //   { source: 'live', status: 'ready', result }
+  //   { source: 'live', status: 'error', message }
+  // While live, the frozen Incheon rows are never displayed. Live rows are
+  // read-only: selecting one only highlights it (no selectCondition(), no
+  // Stellarium write - the Phase 9H-D ownership rule). The JPL Horizons column
+  // belongs to the frozen reference validation set and has no live
+  // counterpart, so the live table has none.
+  // ---------------------------------------------------------------
+
+  var LIVE_EPHEMERIS_STATUS_TEXT = Object.freeze({
+    'not-reached': 'Not reached',
+    'no-ascending-crossing': 'No ascending crossing'
+  });
+
+  function initLiveEphemerisView(drawer) {
+    var referenceEls = Array.prototype.slice.call(drawer.querySelectorAll('[data-ephemeris-reference]'));
+    var liveMeta = drawer.querySelector('[data-live-ephemeris-meta]');
+    var liveStatus = drawer.querySelector('[data-live-ephemeris-status]');
+    var liveWrap = drawer.querySelector('[data-live-ephemeris]');
+    var liveBody = drawer.querySelector('[data-live-ephemeris-tbody]');
+    var csvButton = drawer.querySelector('[data-ephemeris-csv]');
+    if (!referenceEls.length || !liveMeta || !liveStatus || !liveWrap || !liveBody) return;
+
+    function clearLiveRows() {
+      while (liveBody.firstChild) liveBody.removeChild(liveBody.firstChild);
+    }
+
+    function appendCell(rowEl, tagName, text) {
+      var cell = document.createElement(tagName);
+      cell.className = 'text-en data-value';
+      cell.setAttribute('lang', 'en');
+      if (tagName === 'th') cell.setAttribute('scope', 'row');
+      cell.textContent = text;
+      rowEl.appendChild(cell);
+    }
+
+    function selectLiveRow(rowEl) {
+      Array.prototype.forEach.call(liveBody.querySelectorAll('tr[data-live-ephemeris-row]'), function (r) {
+        r.setAttribute('aria-selected', r === rowEl ? 'true' : 'false');
+      });
+    }
+
+    function renderLiveRows(result) {
+      clearLiveRows();
+      result.rows.forEach(function (row) {
+        var rowEl = document.createElement('tr');
+        rowEl.setAttribute('data-live-ephemeris-row', row.conditionId);
+        rowEl.setAttribute('data-live-ephemeris-status', row.status);
+        rowEl.setAttribute('tabindex', '0');
+        rowEl.setAttribute('aria-selected', 'false');
+        appendCell(rowEl, 'th', row.conditionId);
+        if (row.status === 'reached') {
+          appendCell(rowEl, 'td', Format.stellariumLocalTime(row.local, row.timeZone));
+          appendCell(rowEl, 'td', Format.utc(row.utcIso));
+          appendCell(rowEl, 'td', Format.degrees(row.altitudeGeometricDeg));
+          appendCell(rowEl, 'td', Format.degrees(row.azimuthDeg));
+          appendCell(rowEl, 'td', Format.au(row.distanceAu));
+        } else {
+          appendCell(rowEl, 'td', LIVE_EPHEMERIS_STATUS_TEXT[row.status] || 'Unavailable');
+          for (var i = 0; i < 4; i += 1) appendCell(rowEl, 'td', '\u2014');
+        }
+        rowEl.addEventListener('click', function () { selectLiveRow(rowEl); });
+        rowEl.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectLiveRow(rowEl);
+          }
+        });
+        liveBody.appendChild(rowEl);
+      });
+    }
+
+    function liveContextText(result) {
+      var parts = ['13 conditions', 'Live Stellarium'];
+      if (result) {
+        parts.push(
+          result.localDate,
+          Format.latLonPair(result.latitudeDeg, result.longitudeDeg),
+          Format.elevation(result.altitudeM),
+          Format.stellariumLocationName(result.locationName),
+          Format.stellariumTimeZone(result.timeZone)
+        );
+      }
+      return parts.join(' \u00b7 ');
+    }
+
+    window.SolarChemUIShell.setEphemerisView = function (view) {
+      var isLive = !!view && view.source === 'live';
+      var status = isLive ? view.status : null;
+      var ready = status === 'ready' && view.result;
+      referenceEls.forEach(function (el) { el.hidden = isLive; });
+      liveMeta.hidden = !isLive;
+      liveMeta.textContent = isLive ? liveContextText(ready ? view.result : null) : '';
+      liveWrap.hidden = !ready;
+      if (ready) {
+        renderLiveRows(view.result);
+        liveWrap.setAttribute('data-live-ephemeris-date', view.result.localDate);
+      } else {
+        clearLiveRows();
+        liveWrap.removeAttribute('data-live-ephemeris-date');
+      }
+      var statusText = status === 'generating' ? 'Generating live ephemeris\u2026' : status === 'error' ? view.message : '';
+      liveStatus.textContent = statusText || '';
+      liveStatus.hidden = !statusText;
+      liveStatus.classList.toggle('data-error', status === 'error');
+      if (csvButton) csvButton.disabled = isLive && !ready;
+    };
   }
 
   // Exports exactly what the full ephemeris table already shows — reads
@@ -987,14 +1116,26 @@
     return '"' + String(value).replace(/"/g, '""') + '"';
   }
 
+  // Phase 10L: exports whichever table is displayed - the frozen reference
+  // table, or the generated Live table (its rows, "Not reached" included,
+  // exactly as shown). Nothing is recalculated or re-queried.
+  function displayedEphemerisTable(drawer) {
+    return Array.prototype.slice.call(drawer.querySelectorAll('.ephemeris-drawer__table')).filter(function (table) {
+      var wrap = table.closest('.table-scroll');
+      return !(wrap && wrap.hidden);
+    })[0] || null;
+  }
+
   function initEphemerisCsvDownload(drawer) {
     var button = drawer.querySelector('[data-ephemeris-csv]');
-    var table = drawer.querySelector('.ephemeris-drawer__table');
-    if (!button || !table) return;
+    if (!button || !displayedEphemerisTable(drawer)) return;
 
     button.addEventListener('click', function () {
+      var table = displayedEphemerisTable(drawer);
+      if (!table) return;
+      var liveWrap = table.closest('[data-live-ephemeris]');
       var headerCells = Array.prototype.slice.call(table.querySelectorAll('thead th'));
-      var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr[data-ephemeris-row]'));
+      var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr[data-ephemeris-row], tbody tr[data-live-ephemeris-row]'));
       if (!headerCells.length || !rows.length) return;
 
       var lines = [headerCells.map(cellText).map(csvField).join(',')];
@@ -1006,6 +1147,10 @@
       var dateMeta = document.querySelector('[data-ephemeris-meta="date"]');
       var dateSlug = dateMeta ? cellText(dateMeta).replace(/[^0-9A-Za-z-]/g, '') : '';
       var filename = 'solarchem-ephemeris' + (dateSlug ? '-' + dateSlug : '') + '.csv';
+      if (liveWrap) {
+        var liveDate = (liveWrap.getAttribute('data-live-ephemeris-date') || '').replace(/[^0-9A-Za-z-]/g, '');
+        filename = 'solarchem-live-ephemeris' + (liveDate ? '-' + liveDate : '') + '.csv';
+      }
 
       var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
       var url = URL.createObjectURL(blob);

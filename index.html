@@ -443,13 +443,14 @@
       <header class="ephemeris-drawer__head">
         <div class="ephemeris-drawer__heading">
           <h2 id="ephemeris-drawer-title" class="text-ko" lang="ko">천체 역표</h2>
-          <p class="ephemeris-drawer__meta text-ko" lang="ko">13개 조건 &middot; 인천 &middot; <span class="data-slot" data-ephemeris-meta="date">DATA SLOT</span></p>
+          <p class="ephemeris-drawer__meta text-ko" lang="ko" data-ephemeris-reference>13개 조건 &middot; 인천 &middot; <span class="data-slot" data-ephemeris-meta="date">DATA SLOT</span></p>
+          <p class="ephemeris-drawer__meta text-en" lang="en" data-live-ephemeris-meta hidden></p>
         </div>
         <button type="button" class="ephemeris-drawer__close text-en" lang="en" data-drawer-close>Close</button>
       </header>
 
       <div class="ephemeris-drawer__body">
-        <div class="table-scroll">
+        <div class="table-scroll" data-ephemeris-reference>
           <table class="editorial-table ephemeris-drawer__table">
             <thead>
               <tr>
@@ -477,6 +478,22 @@
               <tr data-ephemeris-row="ALT065" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALT065</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
               <tr data-ephemeris-row="ALTMAX" tabindex="0" aria-selected="false"><th scope="row" class="text-en" lang="en">ALTMAX</th><td class="data-slot text-en" lang="en" data-field="local-time">&mdash;</td><td class="data-slot text-en" lang="en" data-field="utc">&mdash;</td><td class="data-slot text-en" lang="en" data-field="stellarium-altitude">&mdash;</td><td class="data-slot text-en" lang="en" data-field="jpl-airless-elevation">&mdash;</td><td class="data-slot text-en" lang="en" data-field="azimuth">&mdash;</td><td class="data-slot text-en" lang="en" data-field="distance">&mdash;</td></tr>
             </tbody>
+          </table>
+        </div>
+        <p class="ephemeris-drawer__status text-en" lang="en" role="status" aria-live="polite" data-live-ephemeris-status hidden></p>
+        <div class="table-scroll" data-live-ephemeris hidden>
+          <table class="editorial-table ephemeris-drawer__table">
+            <thead>
+              <tr>
+                <th class="text-ko" lang="ko" scope="col">조건</th>
+                <th class="text-ko" lang="ko" scope="col">현지 시각</th>
+                <th class="text-en" lang="en" scope="col">UTC</th>
+                <th scope="col"><span class="text-en" lang="en">Stellarium</span><br><span class="text-ko" lang="ko">기하학적 고도</span></th>
+                <th class="text-ko" lang="ko" scope="col">태양 방위각</th>
+                <th class="text-ko" lang="ko" scope="col">지구&ndash;태양 거리</th>
+              </tr>
+            </thead>
+            <tbody data-live-ephemeris-tbody></tbody>
           </table>
         </div>
       </div>
@@ -590,7 +607,7 @@
 
   <footer class="site-rail" data-site-rail aria-label="Persistent navigation">
     <div class="site-rail__mini" id="mini-ephemeris">
-      <span class="text-en" lang="en">Incheon</span>
+      <span class="text-en" lang="en" data-mini-site>Incheon</span>
       <span class="site-rail__mini-sep" aria-hidden="true">&middot;</span>
       <span class="text-en data-slot" lang="en" data-mini-ephemeris="local-time">DATA SLOT</span>
       <span class="site-rail__mini-sep" aria-hidden="true">&middot;</span>
